@@ -1,0 +1,53 @@
+@import "tailwindcss";
+
+/**
+ * intel-arc.css — OKLCH color tokens for the raptor-tma 3D frontend.
+ * Source: .claude/skills/raptor-tma-3d/assets/tones/intel-arc.css
+ */
+@theme {
+  /* Background + elevation */
+  --color-bg:         oklch(0.18 0.02 250);
+  --color-bg-elev:    oklch(0.22 0.025 250);
+  --color-bg-overlay: oklch(0.20 0.022 250 / 0.78);
+
+  /* Intel Arc accent */
+  --color-arc-cyan:   oklch(0.78 0.18 220);
+  --color-arc-glow:   oklch(0.88 0.20 220);
+  --color-arc-deep:   oklch(0.55 0.16 235);
+
+  /* Severity scale */
+  --color-sev-green:  oklch(0.74 0.18 145);
+  --color-sev-yellow: oklch(0.82 0.16 95);
+  --color-sev-red:    oklch(0.68 0.22 25);
+  --color-sev-crit:   oklch(0.62 0.28 10);
+
+  /* Grid + structural */
+  --color-grid:       oklch(0.30 0.02 250 / 0.35);
+  --color-stroke:     oklch(0.30 0.04 250 / 0.5);
+  --color-stroke-hot: oklch(0.78 0.18 220 / 0.6);
+
+  /* Text */
+  --color-fg:         oklch(0.94 0.005 250);
+  --color-fg-mute:    oklch(0.72 0.01 250);
+  --color-fg-dim:     oklch(0.52 0.01 250);
+
+  /* Fonts (Geist + Geist Mono — self-host placeholder; falls back to system stack for now) */
+  --font-sans: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+  overflow: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}

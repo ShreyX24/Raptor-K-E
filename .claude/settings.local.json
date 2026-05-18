@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(raptor-tma-3d)",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__list_pages",
+      "mcp__plugin_chrome-devtools-mcp_chrome-devtools__new_page",
+      "Bash(tasklist)",
+      "Skill(superpowers:dispatching-parallel-agents)",
+      "WebFetch(domain:chipsandcheese.com)",
+      "WebFetch(domain:www.techpowerup.com)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:old.chipsandcheese.com)",
+      "WebFetch(domain:www.tomshardware.com)",
+      "WebFetch(domain:skatterbencher.com)",
+      "WebFetch(domain:edc.intel.com)",
+      "WebFetch(domain:www.guru3d.com)",
+      "WebFetch(domain:www.theregister.com)",
+      "WebFetch(domain:wccftech.com)",
+      "WebFetch(domain:videocardz.com)"
+    ]
+  }
+}
