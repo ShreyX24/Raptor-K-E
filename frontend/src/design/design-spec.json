@@ -1,0 +1,310 @@
+{
+  "$schema": "raptor-tma lion-cove board design spec v1",
+  "$notes": [
+    "Fill EVERY field below. Empty strings / 0 / null = not yet specified.",
+    "All colors must be lowercase hex with leading # (e.g. \"#1a2538\"). No CSS variables, no oklch, no rgba.",
+    "Numeric ranges follow Three.js MeshPhysicalMaterial conventions (0..1 unless noted).",
+    "If a band needs a gradient, supply gradientStops[] — I will bake into a texture.",
+    "If a band should NOT have a property (e.g. no emissive), set its color to \"#000000\" and intensity 0."
+  ],
+
+  "background": {
+    "color":    "#02060d",
+    "fogColor": "#03080f",
+    "fogNear":  18,
+    "fogFar":   65
+  },
+
+  "lighting": {
+    "ambientIntensity": 0.18,
+    "directionalKey":   { "color": "#ffe8c4", "intensity": 0.55, "positionHint": "upper-right" },
+    "rimCyan":          { "color": "#00b2ff", "intensity": 1.85, "positionHint": "below-back" },
+    "fillCool":         { "color": "#2a78d6", "intensity": 0.35, "positionHint": "left" }
+  },
+
+  "boardPlate": {
+    "$comment": "The dark substrate plate behind all the cells. Visible as a thin frame around the cell grid.",
+    "color":             "#070b14",
+    "emissive":          "#0a2a44",
+    "emissiveIntensity": 0.14,
+    "metalness":         0.55,
+    "roughness":         0.62,
+    "clearcoat":         0.35,
+    "clearcoatRoughness":0.48,
+    "envMapIntensity":   0.45,
+    "transparent":       false,
+    "opacity":           1,
+    "edge": { "color": "#1a4870", "lineWidth": 1, "opacity": 0.7 }
+  },
+
+  "bands": {
+    "frontEndCaches": {
+      "$cells": ["itlb-icache", "bpu"],
+      "$die-shot-color": "dark slate / nearly black, very subtle edge",
+      "material": {
+        "color":             "#0c1422",
+        "emissive":          "#0d2238",
+        "emissiveIntensity": 0.22,
+        "metalness":         0.32,
+        "roughness":         0.62,
+        "clearcoat":         0.30,
+        "clearcoatRoughness":0.45,
+        "envMapIntensity":   0.50,
+        "transparent":       true,
+        "opacity":           0.97
+      },
+      "edge":        { "color": "#2f6e9c", "lineWidth": 1.2, "opacity": 0.85 },
+      "labelColor":  "#b9d8f0",
+      "labelOutline":"#04101c"
+    },
+
+    "decodeRow": {
+      "$cells": ["msrom", "decode", "uop-cache"],
+      "$die-shot-color": "dark slate, slight lighter than frontEndCaches",
+      "material": {
+        "color":             "#10203a",
+        "emissive":          "#143a5e",
+        "emissiveIntensity": 0.30,
+        "metalness":         0.30,
+        "roughness":         0.58,
+        "clearcoat":         0.32,
+        "clearcoatRoughness":0.42,
+        "envMapIntensity":   0.55,
+        "transparent":       true,
+        "opacity":           0.97
+      },
+      "edge":        { "color": "#3e84b8", "lineWidth": 1.4, "opacity": 0.90 },
+      "labelColor":  "#c8e2f4",
+      "labelOutline":"#061322"
+    },
+
+    "uopQueue": {
+      "$cells": ["uop-queue"],
+      "$die-shot-color": "BRIGHT BLUE band — the hero color in the reference",
+      "material": {
+        "color":             "#1a7cff",
+        "emissive":          "#2a92ff",
+        "emissiveIntensity": 1.35,
+        "metalness":         0.22,
+        "roughness":         0.46,
+        "clearcoat":         0.45,
+        "clearcoatRoughness":0.32,
+        "envMapIntensity":   0.70,
+        "transparent":       true,
+        "opacity":           0.92
+      },
+      "edge":        { "color": "#7ec8ff", "lineWidth": 2.4, "opacity": 1.0 },
+      "labelColor":  "#eaf6ff",
+      "labelOutline":"#0a2c66"
+    },
+
+    "allocateRename": {
+      "$cells": ["allocate"],
+      "$die-shot-color": "TEAL band — slightly darker than uopQueue, more green-leaning",
+      "material": {
+        "color":             "#1e6b76",
+        "emissive":          "#2ea0ad",
+        "emissiveIntensity": 0.78,
+        "metalness":         0.24,
+        "roughness":         0.52,
+        "clearcoat":         0.40,
+        "clearcoatRoughness":0.36,
+        "envMapIntensity":   0.62,
+        "transparent":       true,
+        "opacity":           0.95
+      },
+      "edge":        { "color": "#5fdce8", "lineWidth": 2.0, "opacity": 0.95 },
+      "labelColor":  "#e8fbff",
+      "labelOutline":"#062628"
+    },
+
+    "registerFiles": {
+      "$cells": ["vec-rf", "int-rf"],
+      "$die-shot-color": "lighter teal panels — backdrop for the scheduler columns below",
+      "material": {
+        "color":             "#287a86",
+        "emissive":          "#48b8c4",
+        "emissiveIntensity": 0.58,
+        "metalness":         0.26,
+        "roughness":         0.55,
+        "clearcoat":         0.38,
+        "clearcoatRoughness":0.40,
+        "envMapIntensity":   0.58,
+        "transparent":       true,
+        "opacity":           0.94
+      },
+      "edge":        { "color": "#74e6ee", "lineWidth": 1.8, "opacity": 0.92 },
+      "labelColor":  "#f0ffff",
+      "labelOutline":"#082a30"
+    },
+
+    "vectorColumn": {
+      "$cells": ["vec-sched", "v-port-*", "v-r8-*", "v-r9-*", "v-r10-*", "v-fpdiv-*"],
+      "$die-shot-color": "bright cyan-blue active column — most prominent column in the ref",
+      "material": {
+        "color":             "#1e86ee",
+        "emissive":          "#36a8ff",
+        "emissiveIntensity": 1.20,
+        "metalness":         0.22,
+        "roughness":         0.48,
+        "clearcoat":         0.45,
+        "clearcoatRoughness":0.34,
+        "envMapIntensity":   0.68,
+        "transparent":       true,
+        "opacity":           0.93
+      },
+      "edge":        { "color": "#7fd2ff", "lineWidth": 2.0, "opacity": 1.0 },
+      "labelColor":  "#f4fbff",
+      "labelOutline":"#0a2f5c"
+    },
+
+    "vectorFill": {
+      "$cells": ["x87-mmx"],
+      "$die-shot-color": "deep blue fill block at the column bottom, slightly darker than the active cells above",
+      "material": {
+        "color":             "#0f4cb4",
+        "emissive":          "#1c6cd8",
+        "emissiveIntensity": 0.88,
+        "metalness":         0.26,
+        "roughness":         0.52,
+        "clearcoat":         0.40,
+        "clearcoatRoughness":0.38,
+        "envMapIntensity":   0.62,
+        "transparent":       true,
+        "opacity":           0.94
+      },
+      "edge":        { "color": "#5da8ff", "lineWidth": 2.0, "opacity": 0.95 },
+      "labelColor":  "#eef4ff",
+      "labelOutline":"#06214a"
+    },
+
+    "integerColumn": {
+      "$cells": ["int-sched", "p-port-*", "i-r8-*", "i-r9-*", "i-mul-*"],
+      "$die-shot-color": "teal — desaturated relative to vectorColumn",
+      "material": {
+        "color":             "#268f9c",
+        "emissive":          "#42c4d0",
+        "emissiveIntensity": 0.72,
+        "metalness":         0.24,
+        "roughness":         0.54,
+        "clearcoat":         0.40,
+        "clearcoatRoughness":0.40,
+        "envMapIntensity":   0.60,
+        "transparent":       true,
+        "opacity":           0.94
+      },
+      "edge":        { "color": "#74e6ee", "lineWidth": 1.8, "opacity": 0.95 },
+      "labelColor":  "#f0ffff",
+      "labelOutline":"#082c32"
+    },
+
+    "integerFill": {
+      "$cells": ["misc"],
+      "$die-shot-color": "dark teal — fills bottom of integer column, shows through MUL gaps above",
+      "material": {
+        "color":             "#103c44",
+        "emissive":          "#19606c",
+        "emissiveIntensity": 0.36,
+        "metalness":         0.28,
+        "roughness":         0.60,
+        "clearcoat":         0.32,
+        "clearcoatRoughness":0.46,
+        "envMapIntensity":   0.50,
+        "transparent":       true,
+        "opacity":           0.96
+      },
+      "edge":        { "color": "#3a8c98", "lineWidth": 1.4, "opacity": 0.85 },
+      "labelColor":  "#c8eef0",
+      "labelOutline":"#04181c"
+    },
+
+    "storeDataColumn": {
+      "$cells": ["sto-sched", "sd-port-*"],
+      "$die-shot-color": "dark blue, narrow subdued column",
+      "material": {
+        "color":             "#0e2a55",
+        "emissive":          "#1a4a90",
+        "emissiveIntensity": 0.48,
+        "metalness":         0.28,
+        "roughness":         0.58,
+        "clearcoat":         0.34,
+        "clearcoatRoughness":0.44,
+        "envMapIntensity":   0.52,
+        "transparent":       true,
+        "opacity":           0.95
+      },
+      "edge":        { "color": "#3a7acc", "lineWidth": 1.5, "opacity": 0.88 },
+      "labelColor":  "#dce8ff",
+      "labelOutline":"#040f24"
+    },
+
+    "storeDataFill": {
+      "$cells": ["store-data"],
+      "$die-shot-color": "dark blue fill, vertical tall block",
+      "material": {
+        "color":             "#0a2148",
+        "emissive":          "#143670",
+        "emissiveIntensity": 0.38,
+        "metalness":         0.28,
+        "roughness":         0.60,
+        "clearcoat":         0.32,
+        "clearcoatRoughness":0.46,
+        "envMapIntensity":   0.50,
+        "transparent":       true,
+        "opacity":           0.96
+      },
+      "edge":        { "color": "#305fb0", "lineWidth": 1.4, "opacity": 0.85 },
+      "labelColor":  "#d2dfff",
+      "labelOutline":"#030b1e"
+    },
+
+    "memoryColumn": {
+      "$cells": ["mem-sched", "m-port-*", "m-r8-*", "m-r9-*"],
+      "$die-shot-color": "dark blue, similar to storeDataColumn but slightly more saturated",
+      "material": {
+        "color":             "#143672",
+        "emissive":          "#2058ac",
+        "emissiveIntensity": 0.62,
+        "metalness":         0.26,
+        "roughness":         0.55,
+        "clearcoat":         0.38,
+        "clearcoatRoughness":0.40,
+        "envMapIntensity":   0.58,
+        "transparent":       true,
+        "opacity":           0.94
+      },
+      "edge":        { "color": "#4a8ee4", "lineWidth": 1.7, "opacity": 0.92 },
+      "labelColor":  "#e2ecff",
+      "labelOutline":"#05132e"
+    },
+
+    "cacheStack": {
+      "$cells": ["l0d", "l1d", "l2"],
+      "$die-shot-color": "DEEP BLUE / violet — most saturated blue on the board",
+      "material": {
+        "color":             "#1a3ec8",
+        "emissive":          "#2a58ec",
+        "emissiveIntensity": 1.10,
+        "metalness":         0.24,
+        "roughness":         0.48,
+        "clearcoat":         0.45,
+        "clearcoatRoughness":0.34,
+        "envMapIntensity":   0.66,
+        "transparent":       true,
+        "opacity":           0.93
+      },
+      "edge":        { "color": "#7090ff", "lineWidth": 2.2, "opacity": 1.0 },
+      "labelColor":  "#eef0ff",
+      "labelOutline":"#0a195c"
+    }
+  },
+
+  "global": {
+    "$comment": "Settings that apply across ALL bands. Edges default to cyan rim across the chip.",
+    "bloomThreshold":    0.82,
+    "bloomStrength":     0.85,
+    "bloomRadius":       0.55,
+    "fontFamily":        "IntelOne Display Bold",
+    "labelOutlineWidth": 0.12
+  }
+}

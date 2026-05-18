@@ -36,6 +36,7 @@ import { useStore } from '@/state/store'
 import { computeContextInfo } from '@/util/contextMode'
 import type { BlockSpec } from '@/data/chip-spec'
 import { SILICON_FONT_URL } from '@/hud/fonts'
+import { designSpec, bandFor } from '@/design/spec'
 
 // ─── Layout constants ─────────────────────────────────────────────────
 // World coordinates for the context view (camera looks at this in +Z direction).
@@ -66,7 +67,7 @@ const TRAP_BOT_D    = 2.6
 // Bezel inset for the cyan rim on the board frame
 const BOARD_PAD = 0.3
 
-// Engraved-text colors
+// Legacy fallback label colors (overridden per-band from designSpec).
 const LABEL_COLOR = '#cfd6e2'
 const LABEL_OUTLINE = '#000814'
 
@@ -141,40 +142,55 @@ function BoardCell({ spec }: BoardCellProps) {
   const isFillBlock = (spec.depth ?? 1) >= 3
   const zOffset = isFillBlock ? -0.05 : 0
 
+  // Per-band material/edge/label — driven by the design spec at
+  // src/design/design-spec.json (produced by Claude Design).
+  const band = bandFor(spec.id)
+  const bandStyle = designSpec.bands[band]
+  const mat = bandStyle.material
+  const edge = bandStyle.edge
+
   // Auto-sized label
   const labelSize = Math.max(0.14, Math.min(w, h) * 0.18)
   const maxLabelW = w * 0.86
+  const outlineRel = designSpec.global.labelOutlineWidth || 0.05
 
   return (
     <group position={[localX, localY, zOffset]}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[w, h, thickness]} />
         <meshPhysicalMaterial
-          color="#1a222d"
-          metalness={0.4}
-          roughness={0.55}
-          clearcoat={0.4}
-          clearcoatRoughness={0.4}
-          emissive="#0a3a55"
-          emissiveIntensity={0.32}
-          envMapIntensity={0.8}
+          color={mat.color}
+          emissive={mat.emissive}
+          emissiveIntensity={mat.emissiveIntensity}
+          metalness={mat.metalness}
+          roughness={mat.roughness}
+          clearcoat={mat.clearcoat}
+          clearcoatRoughness={mat.clearcoatRoughness}
+          envMapIntensity={mat.envMapIntensity}
+          transparent={mat.transparent}
+          opacity={mat.opacity}
         />
-        {/* Visible cyan border per user request */}
-        <Edges color="#00b2ff" threshold={1} lineWidth={1.5} />
+        <Edges
+          color={edge.color}
+          threshold={1}
+          lineWidth={edge.lineWidth}
+          transparent
+          opacity={edge.opacity}
+        />
       </mesh>
       {/* Front-face engraved label */}
       <Text
         position={[0, 0, thickness / 2 + 0.005]}
         font={SILICON_FONT_URL}
         fontSize={labelSize}
-        color={LABEL_COLOR}
+        color={bandStyle.labelColor || LABEL_COLOR}
         anchorX="center"
         anchorY="middle"
         letterSpacing={0.03}
         maxWidth={maxLabelW}
         textAlign="center"
-        outlineWidth={labelSize * 0.05}
-        outlineColor={LABEL_OUTLINE}
+        outlineWidth={labelSize * outlineRel}
+        outlineColor={bandStyle.labelOutline || LABEL_OUTLINE}
       >
         {spec.label}
       </Text>
@@ -225,21 +241,29 @@ export function ContextProjector() {
 
   return (
     <group>
-      {/* Board background plate — slightly larger than the cell envelope,
-          dark anodized, cyan rim. The cells sit at z=0; this plate at z=-0.05
-          so it reads as a "wall" behind them. */}
+      {/* Board background plate — styled from designSpec.boardPlate */}
       <group position={[0, BOARD_CENTER_Y, BOARD_FACE_Z - 0.06]}>
         <mesh receiveShadow>
           <boxGeometry args={[boardW, boardH, 0.08]} />
           <meshPhysicalMaterial
-            color="#0c111c"
-            metalness={0.25}
-            roughness={0.78}
-            emissive="#04162a"
-            emissiveIntensity={0.18}
-            envMapIntensity={0.3}
+            color={designSpec.boardPlate.color}
+            emissive={designSpec.boardPlate.emissive}
+            emissiveIntensity={designSpec.boardPlate.emissiveIntensity}
+            metalness={designSpec.boardPlate.metalness}
+            roughness={designSpec.boardPlate.roughness}
+            clearcoat={designSpec.boardPlate.clearcoat}
+            clearcoatRoughness={designSpec.boardPlate.clearcoatRoughness}
+            envMapIntensity={designSpec.boardPlate.envMapIntensity}
+            transparent={designSpec.boardPlate.transparent}
+            opacity={designSpec.boardPlate.opacity}
           />
-          <Edges color="#00b2ff" threshold={1} lineWidth={1.5} />
+          <Edges
+            color={designSpec.boardPlate.edge.color}
+            threshold={1}
+            lineWidth={designSpec.boardPlate.edge.lineWidth}
+            transparent
+            opacity={designSpec.boardPlate.edge.opacity}
+          />
         </mesh>
       </group>
 
