@@ -41,15 +41,15 @@ export function Breadcrumb() {
 
   return (
     <div
-      className="absolute top-4 left-1/2 -translate-x-1/2 z-10
-                 flex items-center gap-1 px-4 py-2
+      className="absolute top-0 left-1/2 -translate-x-1/2 z-10
+                 flex items-center gap-1 px-5 py-2.5
                  text-xs font-silicon tracking-wide
                  text-[oklch(0.92_0.02_240)]
-                 bg-[oklch(0.12_0.02_250_/_0.65)]
-                 border border-[oklch(0.78_0.18_220_/_0.35)]
-                 rounded-md
+                 bg-[oklch(0.12_0.02_250_/_0.72)]
+                 border-b border-x border-[oklch(0.78_0.18_220_/_0.35)]
+                 rounded-b-md
                  backdrop-blur-[6px]
-                 shadow-[0_0_24px_rgba(0,178,255,0.08)]"
+                 shadow-[0_4px_24px_rgba(0,178,255,0.10)]"
     >
       <button
         onClick={() => focus([])}

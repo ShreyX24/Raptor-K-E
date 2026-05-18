@@ -98,7 +98,10 @@ export function useChoreographer(controlsRef: RefObject<CameraControls | null>) 
 
     // Context mode — a deep block (P-core with enterContext) was focused.
     // Frame the inner board (children layer above the context block) at canonical
-    // angle, large enough to fit the standard 8×6 board layout.
+    // angle, tight enough to nearly fill the viewport between top breadcrumb and
+    // bottom name tag. Lion Cove board is 8 × 6 in world units; at FOV 38° with
+    // ELEV 72°, distance ≈ 7.0 makes it cover ~85% of the available vertical
+    // space (text inside small blocks becomes readable).
     const context = computeContextInfo(focusPath)
     if (context.active && context.path) {
       const contextLeafId = context.path[context.path.length - 1]
@@ -108,9 +111,7 @@ export function useChoreographer(controlsRef: RefObject<CameraControls | null>) 
         const cx = (_box.min.x + _box.max.x) / 2
         const cz = (_box.min.z + _box.max.z) / 2
         const cy = _box.max.y + DRILL_GAP + CHILD_HEIGHT
-        // Lion Cove board is 8 × 6 — pick a distance that comfortably frames it
-        // at near-top-down angle (same canonical 72°).
-        const distance = 11
+        const distance = 7.0
         const camX = cx + distance * Math.cos(CANONICAL_ELEV) * Math.sin(CANONICAL_AZIM)
         const camY = cy + distance * Math.sin(CANONICAL_ELEV)
         const camZ = cz + distance * Math.cos(CANONICAL_ELEV) * Math.cos(CANONICAL_AZIM)
