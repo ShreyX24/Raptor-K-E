@@ -44,13 +44,17 @@
  * styling instructions (e.g. "S5 emissive #00ffff at intensity 1.2", or
  * "E11 thicker line").
  */
-import { Suspense } from 'react'
+import { Suspense, useEffect, useMemo, useRef, type RefObject } from 'react'
 import * as THREE from 'three'
-import { Canvas } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Edges, Text, Environment } from '@react-three/drei'
+import type CameraControlsImpl from 'camera-controls'
 import { Perf } from 'r3f-perf'
 
 import { SILICON_FONT_URL } from '@/hud/fonts'
+import { HoverHighlightShowcase } from './HoverHighlightShowcase'
+import { RestingTileAsset } from './RestingTileAsset'
+import { HoverFrameAsset } from './HoverFrameAsset'
 
 // Cuboid dimensions (X, Y, Z) — CPU-tile-ish but inflated for visibility.
 const W = 8
@@ -110,14 +114,126 @@ function nudge(p: [number, number, number], delta: number): [number, number, num
   return [p[0] * (1 + delta / len), p[1] * (1 + delta / len), p[2] * (1 + delta / len)]
 }
 
-export function TestCuboid() {
+function CameraSetup({ ccRef }: { ccRef: RefObject<CameraControlsImpl | null> }) {
+  useEffect(() => {
+    // Frame everything in the /test scene:
+    //   - V/E/S reference cuboid at origin (right)
+    //   - asset 01 hover/highlight at x ≈ -18, y ≈ +2  (top-left)
+    //   - asset 02 resting tiles  at x ≈ -18, y ≈ -12 (bottom-left)
+    //   - asset 03 hover frame    at x ≈   0, y ≈ -12 (bottom-right)
+    // Pulled back so all of them fit; lookAt biased toward the lower-left.
+    ccRef.current?.setLookAt(8, 16, 44, -9, -3, 0, false)
+  }, [ccRef])
+  return <CameraControls ref={ccRef} makeDefault smoothTime={0.4} />
+}
+
+/**
+ * FreeCameraController — when `enabled`, listens for WASD/Space/Shift and
+ * shifts camera + target by the same delta each frame. Mouse orbit on
+ * CameraControls keeps working alongside (you rotate around the new center).
+ *
+ *   W / S  — move forward / back along view direction (horizontal plane only)
+ *   A / D  — strafe left / right (relative to view)
+ *   Space  — lift up (+Y world)
+ *   Shift  — drop down (-Y world)   [Ctrl is reserved by the browser — Ctrl+W
+ *                                   closes the tab, so we use Shift instead]
+ */
+const FREE_KEYS = new Set(['KeyW', 'KeyA', 'KeyS', 'KeyD', 'Space', 'ShiftLeft', 'ShiftRight'])
+const FREE_CAM_SPEED = 18 // world units / sec
+
+function FreeCameraController({
+  ccRef,
+  enabled,
+}: {
+  ccRef: RefObject<CameraControlsImpl | null>
+  enabled: boolean
+}) {
+  const pressedRef = useRef<Set<string>>(new Set())
+  const invalidate = useThree((s) => s.invalidate)
+
+  // Hoisted scratch — avoids per-frame Vector3 allocations
+  const target  = useMemo(() => new THREE.Vector3(), [])
+  const pos     = useMemo(() => new THREE.Vector3(), [])
+  const forward = useMemo(() => new THREE.Vector3(), [])
+  const right   = useMemo(() => new THREE.Vector3(), [])
+  const delta   = useMemo(() => new THREE.Vector3(), [])
+  const WORLD_UP = useMemo(() => new THREE.Vector3(0, 1, 0), [])
+
+  useEffect(() => {
+    if (!enabled) {
+      pressedRef.current.clear()
+      return
+    }
+    const onDown = (e: KeyboardEvent) => {
+      if (FREE_KEYS.has(e.code)) {
+        pressedRef.current.add(e.code)
+        e.preventDefault()
+        invalidate() // kick off frame loop while keys are held
+      }
+    }
+    const onUp = (e: KeyboardEvent) => {
+      pressedRef.current.delete(e.code)
+    }
+    window.addEventListener('keydown', onDown)
+    window.addEventListener('keyup', onUp)
+    return () => {
+      window.removeEventListener('keydown', onDown)
+      window.removeEventListener('keyup', onUp)
+      pressedRef.current.clear()
+    }
+  }, [enabled, invalidate])
+
+  useFrame((_, dt) => {
+    if (!enabled) return
+    const cc = ccRef.current
+    if (!cc) return
+    if (pressedRef.current.size === 0) return
+
+    const step = FREE_CAM_SPEED * Math.min(dt, 0.033) // cap dt on tab-switch jumps
+
+    cc.getTarget(target)
+    cc.getPosition(pos)
+
+    forward.copy(target).sub(pos)
+    forward.y = 0
+    if (forward.lengthSq() < 1e-6) {
+      forward.set(0, 0, -1) // looking straight up/down — fall back
+    } else {
+      forward.normalize()
+    }
+    right.copy(forward).cross(WORLD_UP).normalize()
+
+    delta.set(0, 0, 0)
+    const pressed = pressedRef.current
+    if (pressed.has('KeyW')) delta.addScaledVector(forward,  step)
+    if (pressed.has('KeyS')) delta.addScaledVector(forward, -step)
+    if (pressed.has('KeyD')) delta.addScaledVector(right,    step)
+    if (pressed.has('KeyA')) delta.addScaledVector(right,   -step)
+    if (pressed.has('Space')) delta.y += step
+    if (pressed.has('ShiftLeft') || pressed.has('ShiftRight')) delta.y -= step
+
+    if (delta.lengthSq() > 0) {
+      cc.setLookAt(
+        pos.x + delta.x,    pos.y + delta.y,    pos.z + delta.z,
+        target.x + delta.x, target.y + delta.y, target.z + delta.z,
+        false,
+      )
+      invalidate() // keep the frame loop alive while keys are held
+    }
+  })
+
+  return null
+}
+
+export function TestCuboid({ freeCamera = false }: { freeCamera?: boolean }) {
+  const ccRef = useRef<CameraControlsImpl | null>(null)
   return (
     <Canvas
       frameloop="demand"
       dpr={[1, 2]}
       shadows={{ type: THREE.PCFShadowMap }}
       gl={{ antialias: false, powerPreference: 'high-performance', stencil: false }}
-      camera={{ position: [12, 10, 16], fov: 38, near: 0.1, far: 200 }}
+      camera={{ position: [8, 16, 44], fov: 42, near: 0.1, far: 200 }}
       onCreated={({ gl }) => {
         THREE.ColorManagement.enabled = true
         gl.outputColorSpace = THREE.SRGBColorSpace
@@ -125,7 +241,8 @@ export function TestCuboid() {
         gl.toneMappingExposure = 1.0
       }}
     >
-      <color attach="background" args={['#0a1422']} />
+      {/* Lighter purple-violet base — soothing, not dark-blue "empty space" */}
+      <color attach="background" args={['#332e52']} />
 
       {/* Lighting — neutral so the cuboid reads cleanly */}
       <ambientLight intensity={0.35} />
@@ -224,7 +341,36 @@ export function TestCuboid() {
         </Text>
       ))}
 
-      <CameraControls makeDefault smoothTime={0.4} />
+      {/* ────────────────────────────────────────────────────────────────
+        HOVER / HIGHLIGHT ASSET (asset 01) — top-left.
+        ONE cuboid + clickable swatch row picks the S6 status colour.
+        cell-color.jpg = reference for colors only.
+      ──────────────────────────────────────────────────────────────── */}
+      <group position={[-18, 2, 0]}>
+        <HoverHighlightShowcase />
+      </group>
+
+      {/* ────────────────────────────────────────────────────────────────
+        RESTING / DEFAULT ASSET (asset 02) — bottom-left.
+        Frosted-glass tiles laid out chip-style, per-tile tint, gaps.
+        Reference: Presentation1_page-0002.jpg
+      ──────────────────────────────────────────────────────────────── */}
+      <group position={[-18, -12, 0]}>
+        <RestingTileAsset />
+      </group>
+
+      {/* ────────────────────────────────────────────────────────────────
+        HOVER ASSET (asset 03) — bottom-right.
+        Row of 3 tiles: middle one is LIFTED + ringed with cyan frame
+        (the page-007 hover state). Resting peers either side show the
+        differential. NOT the highlight state — highlight is asset 01.
+      ──────────────────────────────────────────────────────────────── */}
+      <group position={[0, -12, 0]}>
+        <HoverFrameAsset />
+      </group>
+
+      <CameraSetup ccRef={ccRef} />
+      <FreeCameraController ccRef={ccRef} enabled={freeCamera} />
 
       {import.meta.env.DEV && <Perf position="bottom-left" />}
     </Canvas>

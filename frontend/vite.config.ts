@@ -11,6 +11,9 @@ export default defineConfig({
     },
   },
   server: {
+    // Bind to all interfaces so the dev server is reachable from other
+    // devices on the same LAN. Vite logs the LAN URL on startup.
+    host: true,
     port: 3000,
     strictPort: true,
     open: false,
