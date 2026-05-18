@@ -45,6 +45,51 @@ export interface BlockSpec {
   enterContext?: boolean
 }
 
+/**
+ * Lion Cove board canvas — die-shot accurate.
+ *
+ * The board is RENDERED VERTICALLY by ContextBoard (a flat poster facing the
+ * camera). Each cell's localX is its X position on the board face, and
+ * localZ is its Y position (with +Z = TOP of the board). The renderer
+ * rotates the spec coordinates into the camera-facing X-Y plane.
+ *
+ * Coordinate ranges (raw chip-spec units):
+ *   localX:  [-8, +8]   total width 16
+ *   localZ:  [-7, +7]   total height 14
+ *
+ * Cell positions match the die shot column structure exactly:
+ *   Top 5 rows: full-width-and-band-ish (FE caches, decode, queue, allocate, reg files)
+ *   Rows 6+:    4 vertical columns (Vector / Integer / Store Data / Memory)
+ *
+ * Reference: F:\Raptor-K-E\reference images\die p core.jpg
+ */
+export const LION_COVE_BOARD = {
+  width: 16,
+  depth: 14, // really board height in the vertical-board rendering
+} as const
+
+// Helper: spread N labeled cells horizontally across [x0, x1] at one row.
+// Returns BlockSpec[] with sequential ids.
+function rowCells(
+  idPrefix: string,
+  labels: string[],
+  y: number,
+  x0: number,
+  x1: number,
+  rowHeight: number,
+): BlockSpec[] {
+  const w = (x1 - x0) / labels.length
+  return labels.map((label, i) => ({
+    id: `${idPrefix}-${i}`,
+    label,
+    localX: x0 + w * (i + 0.5),
+    localZ: y,
+    width: w,
+    depth: rowHeight,
+    height: 0.15,
+  }))
+}
+
 // L0 root — Arrow Lake 285K whole die
 export const chipSpec: BlockSpec = {
   id: 'arl-285k',
@@ -262,74 +307,114 @@ export const chipSpec: BlockSpec = {
  *
  * When a P-core is clicked, the parent block has `enterContext: true` so the
  * scene shifts: Base/IHS/L0/L1 ghosts unmount, and this board fills the
- * viewport. Board footprint: 8 wide × 6 deep (centered at parent's L2 Y).
+ * viewport. Board footprint scaled to LION_COVE_BOARD_SCALE so the actual 3D
+ * mesh dimensions match the viewport — NOT via camera zoom.
  *
- * Bands (Z from -3 to +3, top → bottom):
- *   z=-2.65, d=0.5 — Front-end caches: I-TLB+ICache, BPU
- *   z=-2.05, d=0.5 — Decode row: MSROM, Decode 8-wide (instanced ×8), µOP Cache 12-wide
- *   z=-1.50, d=0.5 — µOP Queue (full width)
- *   z=-0.95, d=0.5 — Allocate / Rename / Move Elim / Zero Idiom 8-wide (full width)
- *   z=-0.40, d=0.4 — Vector Reg File · Integer Reg File
- *   z= 0.05, d=0.3 — 4 scheduler headers
- *   z= 0.40, d=0.3 — port banks (V0-V3 | P0-P5 | P10-P11 | P20-P27)
- *   z= 0.90, d=0.5 — Vector Exec · Integer Exec · Store Data · Memory Exec
- *   z= 1.55, d=0.5 — MISC (center) + cache stack starts (right)
- *   z= 2.15, d=0.5 — Cache stack: L0 D$ · L1 D$ · L2 cache (right column)
- *
- * Column X centers (4-column scheduler band; widths vary):
- *   Vector  : x=-2.6  (w=1.4)
- *   Integer : x=-0.7  (w=2.4)
- *   StoreData: x=+1.0 (w=0.8)
- *   Memory  : x=+2.6  (w=2.4) — caches stack along this right column
+ * Bands (after scaling, board ≈ 14 wide × 9.5 deep):
+ *   Band 1 (top):   Front-end caches — I-TLB+ICache · BPU
+ *   Band 2:         Decode row — MSROM · Decode 8-wide (×8) · µOP Cache 12-wide
+ *   Band 3:         µOP Queue (full width)
+ *   Band 4:         Allocate / Rename / Move Elim / Zero Idiom (full width)
+ *   Band 5:         Register Files — Vec RF · Int RF
+ *   Band 6:         4 scheduler headers
+ *   Band 7:         Port banks (V0-V3 | P0-P5 | P10-P11 | P20-P27)
+ *   Bands 8-9:      4 exec clusters
+ *   Band 10:        MISC (center) + cache stack (right column)
  */
 function lionCoveBoardBlocks(parentId: string): BlockSpec[] {
+  const p = parentId
+  // Y coords on board (vertical), 0 at center, +7 top, -7 bottom
+  // X coords on board (horizontal), 0 at center, ±8 edges
+  // Columns of the lower half:
+  const VEC_X0  = -8,   VEC_X1  = -5   // Vector column [3 wide]
+  const INT_X0  = -5,   INT_X1  =  2   // Integer column [7 wide]
+  const STO_X0  =  2,   STO_X1  =  3   // Store Data column [1 wide]
+  const MEM_X0  =  3,   MEM_X1  =  8   // Memory column [5 wide]
+
+  // Row Y centers (top to bottom)
+  const R1 = 6.5    // FE caches
+  const R2 = 5.5    // decode row
+  const R3 = 4.5    // µOP queue
+  const R4 = 3.5    // allocate/rename
+  const R5 = 2.5    // register files
+  const R6 = 1.5    // scheduler headers
+  const R7 = 0.5    // port row
+  const R8 = -0.5   // exec row 1 (FMA/FADD ; ALU×6 ; STORE DATA top ; AGU×6)
+  const R9 = -1.5   // exec row 2 (ALU×4 ; JMP/SHIFT×6 ; ... ; LOAD/STA×6)
+  const R10 = -2.5  // exec row 3 (SHIFT/SHUF ; MUL×3 ; ... ; L0 D$)
+  const R11 = -3.5  // exec row 4 (FPDIV×2 ; MISC start ; ... ; L1 D$)
+  // Bottom-fill block centers (height 3, spans Y[-7,-4]):
+  const BOT_C = -5.5
+  const BOT_H = 3
+
   return [
-    // ─── Band 1: Front-end caches ──────────────────────────────────
-    { id: `${parentId}.itlb-icache`, label: 'I-TLB + I-Cache', localX: -1.2, localZ: -2.65, width: 4.4, depth: 0.5, height: 0.2 },
-    { id: `${parentId}.bpu`,         label: 'BPU',             localX:  2.6, localZ: -2.65, width: 2.4, depth: 0.5, height: 0.2 },
+    // ─── Row 1: FE top — I-TLB+I-Cache | BPU ───────────────────────
+    { id: `${p}.itlb-icache`, label: 'I-TLB + I-Cache', localX: -3,   localZ: R1, width: 10, depth: 1, height: 0.15 },
+    { id: `${p}.bpu`,         label: 'BPU',             localX:  5,   localZ: R1, width: 6,  depth: 1, height: 0.15 },
 
-    // ─── Band 2: Decode row ────────────────────────────────────────
-    { id: `${parentId}.msrom`,       label: 'MSROM (4-wide)',    localX: -3.2, localZ: -2.05, width: 1.2, depth: 0.5, height: 0.2 },
-    { id: `${parentId}.decode`,      label: 'Decode (8-wide)',   localX: -0.7, localZ: -2.05, width: 3.8, depth: 0.5, height: 0.2, instanceOf: 'decode.lane', count: 8 },
-    { id: `${parentId}.uop-cache`,   label: 'µOP Cache (12-wide)', localX: 2.6, localZ: -2.05, width: 2.4, depth: 0.5, height: 0.2 },
+    // ─── Row 2: Decode — MSROM | Decode | µOP Cache ────────────────
+    { id: `${p}.msrom`,     label: 'MSROM (4-wide)',     localX: -7,   localZ: R2, width: 2, depth: 1, height: 0.15 },
+    { id: `${p}.decode`,    label: 'Decode (8-wide)',    localX: -1.5, localZ: R2, width: 9, depth: 1, height: 0.15, instanceOf: 'decode.lane', count: 8 },
+    { id: `${p}.uop-cache`, label: 'µOP Cache (12-wide)', localX:  5.5, localZ: R2, width: 5, depth: 1, height: 0.15 },
 
-    // ─── Band 3: µOP Queue ─────────────────────────────────────────
-    { id: `${parentId}.uop-queue`,   label: 'µOP Queue (192 entries)', localX: 0, localZ: -1.50, width: 7.6, depth: 0.5, height: 0.2 },
+    // ─── Row 3: µOP Queue (full width) ─────────────────────────────
+    { id: `${p}.uop-queue`, label: 'µOP Queue (192 entries)', localX: 0, localZ: R3, width: 16, depth: 1, height: 0.15 },
 
-    // ─── Band 4: Allocate / Rename ─────────────────────────────────
-    { id: `${parentId}.allocate-rename`, label: 'Allocate · Rename · Move Elim · Zero Idiom (8-wide)', localX: 0, localZ: -0.95, width: 7.6, depth: 0.5, height: 0.2 },
+    // ─── Row 4: Allocate / Rename (full width) ─────────────────────
+    { id: `${p}.allocate`, label: 'Allocate · Rename · Move Elim · Zero Idiom (8-wide)', localX: 0, localZ: R4, width: 16, depth: 1, height: 0.15 },
 
-    // ─── Band 5: Register Files ────────────────────────────────────
-    { id: `${parentId}.vec-rf`, label: 'Vector Register File',  localX: -2.6, localZ: -0.40, width: 2.4, depth: 0.4, height: 0.15 },
-    { id: `${parentId}.int-rf`, label: 'Integer Register File', localX:  1.3, localZ: -0.40, width: 5.0, depth: 0.4, height: 0.15 },
+    // ─── Row 5: Register Files ─────────────────────────────────────
+    { id: `${p}.vec-rf`, label: 'Vector Register File',  localX: -6.5, localZ: R5, width: 3,  depth: 1, height: 0.15 },
+    { id: `${p}.int-rf`, label: 'Integer Register File', localX:  1.5, localZ: R5, width: 13, depth: 1, height: 0.15 },
 
-    // ─── Band 6: Scheduler headers ─────────────────────────────────
-    { id: `${parentId}.vec-sched`,        label: 'Vector Scheduler',     localX: -2.6, localZ:  0.05, width: 2.4, depth: 0.3, height: 0.15 },
-    { id: `${parentId}.int-sched`,        label: 'Integer Scheduler',    localX: -0.4, localZ:  0.05, width: 2.0, depth: 0.3, height: 0.15 },
-    { id: `${parentId}.store-data-sched`, label: 'Store Data Scheduler', localX:  1.05, localZ: 0.05, width: 0.9, depth: 0.3, height: 0.15 },
-    { id: `${parentId}.mem-sched`,        label: 'Memory Scheduler',     localX:  2.95, localZ: 0.05, width: 2.7, depth: 0.3, height: 0.15 },
+    // ─── Row 6: Scheduler headers (4 columns) ──────────────────────
+    { id: `${p}.vec-sched`, label: 'Vector Scheduler',     localX: -6.5, localZ: R6, width: 3, depth: 1, height: 0.15 },
+    { id: `${p}.int-sched`, label: 'Integer Scheduler',    localX: -1.5, localZ: R6, width: 7, depth: 1, height: 0.15 },
+    { id: `${p}.sto-sched`, label: 'Store Data Scheduler', localX:  2.5, localZ: R6, width: 1, depth: 1, height: 0.15 },
+    { id: `${p}.mem-sched`, label: 'Memory Scheduler',     localX:  5.5, localZ: R6, width: 5, depth: 1, height: 0.15 },
 
-    // ─── Band 7: Port banks (collapsed per scheduler — drill for individual ports) ───
-    { id: `${parentId}.vec-ports`,        label: 'Vector Ports · V0 V1 V2 V3',         localX: -2.6, localZ:  0.40, width: 2.4, depth: 0.3, height: 0.12, instanceOf: 've-port', count: 4 },
-    { id: `${parentId}.int-ports`,        label: 'Integer Ports · P0–P5',              localX: -0.4, localZ:  0.40, width: 2.0, depth: 0.3, height: 0.12, instanceOf: 'int-port', count: 6 },
-    { id: `${parentId}.store-data-ports`, label: 'Store Data Ports · P10 · P11',       localX:  1.05, localZ: 0.40, width: 0.9, depth: 0.3, height: 0.12, instanceOf: 'sd-port', count: 2 },
-    { id: `${parentId}.mem-ports`,        label: 'Memory Ports · P20 P21 P22 P25 P26 P27', localX:  2.95, localZ: 0.40, width: 2.7, depth: 0.3, height: 0.12, instanceOf: 'mem-port', count: 6 },
+    // ─── Row 7: Port rows ──────────────────────────────────────────
+    ...rowCells(`${p}.v-port`,   ['V0', 'V2', 'V1', 'V3'],                       R7, VEC_X0, VEC_X1, 1),
+    ...rowCells(`${p}.p-port`,   ['P0', 'P1', 'P2', 'P3', 'P4', 'P5'],           R7, INT_X0, INT_X1, 1),
+    ...rowCells(`${p}.sd-port`,  ['P10', 'P11'],                                  R7, STO_X0, STO_X1, 1),
+    ...rowCells(`${p}.m-port`,   ['P20', 'P25', 'P21', 'P26', 'P22', 'P27'],     R7, MEM_X0, MEM_X1, 1),
 
-    // ─── Bands 8-9: Execution units ────────────────────────────────
-    { id: `${parentId}.vec-exec`, label: 'Vector Exec · FMA · FADD · ALU · SHIFT · SHUF · FPDIV', localX: -2.6, localZ: 0.90, width: 2.4, depth: 0.5, height: 0.18 },
-    { id: `${parentId}.int-exec`, label: 'Integer Exec · ALU × 6 · JMP · SHIFT · MUL',           localX: -0.4, localZ: 0.90, width: 2.0, depth: 0.5, height: 0.18 },
-    { id: `${parentId}.store-data-exec`, label: 'Store Data',                                     localX:  1.05, localZ: 0.90, width: 0.9, depth: 0.5, height: 0.18 },
-    { id: `${parentId}.mem-exec`, label: 'Memory Exec · AGU × 6 · LOAD × 3 · STA × 3',            localX:  2.95, localZ: 0.90, width: 2.7, depth: 0.5, height: 0.18 },
+    // ─── Row 8: Exec row 1 ─────────────────────────────────────────
+    ...rowCells(`${p}.v-r8`, ['FMA', 'FADD', 'FMA', 'FADD'],                      R8, VEC_X0, VEC_X1, 1),
+    ...rowCells(`${p}.i-r8`, ['ALU', 'ALU', 'ALU', 'ALU', 'ALU', 'ALU'],          R8, INT_X0, INT_X1, 1),
+    ...rowCells(`${p}.m-r8`, ['AGU', 'AGU', 'AGU', 'AGU', 'AGU', 'AGU'],          R8, MEM_X0, MEM_X1, 1),
 
-    // ─── Band 10: MISC (under int-exec) ────────────────────────────
-    { id: `${parentId}.misc-exec`, label: 'MISC', localX: -0.4, localZ: 1.55, width: 2.0, depth: 0.5, height: 0.15 },
+    // ─── Row 9: Exec row 2 ─────────────────────────────────────────
+    ...rowCells(`${p}.v-r9`, ['ALU', 'ALU', 'ALU', 'ALU'],                        R9, VEC_X0, VEC_X1, 1),
+    ...rowCells(`${p}.i-r9`, ['JMP', 'SHIFT', 'JMP', 'SHIFT', 'JMP', 'SHIFT'],   R9, INT_X0, INT_X1, 1),
+    ...rowCells(`${p}.m-r9`, ['LOAD', 'STA', 'LOAD', 'STA', 'LOAD', 'STA'],       R9, MEM_X0, MEM_X1, 1),
 
-    // ─── Cache stack (right column, spans bands 10-11) ─────────────
-    { id: `${parentId}.l0d`, label: 'L0 D-Cache · 48 KB',     localX: 2.95, localZ: 1.50, width: 2.7, depth: 0.4, height: 0.15 },
-    { id: `${parentId}.l1d`, label: 'L1 D-Cache · 192 KB',    localX: 2.95, localZ: 1.95, width: 2.7, depth: 0.4, height: 0.15 },
-    { id: `${parentId}.l2`,  label: 'L2 Cache · up to 3 MB',  localX: 2.95, localZ: 2.40, width: 2.7, depth: 0.4, height: 0.15 },
+    // ─── Row 10: Exec row 3 (vec SHIFT/SHUF, int MUL×3 with gaps, mem L0 cache) ──
+    ...rowCells(`${p}.v-r10`, ['SHIFT', 'SHUF', 'SHIFT', 'SHUF'],                 R10, VEC_X0, VEC_X1, 1),
+    // Integer MUL × 3 placed at P1, P3, P5 column positions (skip P0/P2/P4 slots)
+    { id: `${p}.i-mul-0`, label: 'MUL', localX: -3.25,  localZ: R10, width: 7/6, depth: 1, height: 0.15 },
+    { id: `${p}.i-mul-1`, label: 'MUL', localX: -0.917, localZ: R10, width: 7/6, depth: 1, height: 0.15 },
+    { id: `${p}.i-mul-2`, label: 'MUL', localX:  1.417, localZ: R10, width: 7/6, depth: 1, height: 0.15 },
+    { id: `${p}.l0d`,     label: '48 KB L0 D-Cache', localX: 5.5, localZ: R10, width: 5, depth: 1, height: 0.15 },
+
+    // ─── Row 11: vec FPDIV×2, int MISC starts, mem L1 cache ────────
+    { id: `${p}.v-fpdiv-0`, label: 'FPDIV', localX: -7.25, localZ: R11, width: 1.5, depth: 1, height: 0.15 },
+    { id: `${p}.v-fpdiv-1`, label: 'FPDIV', localX: -5.75, localZ: R11, width: 1.5, depth: 1, height: 0.15 },
+    { id: `${p}.l1d`,       label: '192 KB L1 D-Cache', localX: 5.5, localZ: R11, width: 5, depth: 1, height: 0.15 },
+
+    // ─── Bottom-fill (height 3, fills Y[-7,-4]) ────────────────────
+    // Vector column: X87/MMX
+    { id: `${p}.x87-mmx`,  label: 'X87 / MMX', localX: -6.5, localZ: BOT_C, width: 3, depth: BOT_H, height: 0.15 },
+    // Integer column: MISC
+    { id: `${p}.misc`,     label: 'MISC',      localX: -1.5, localZ: BOT_C, width: 7, depth: BOT_H, height: 0.15 },
+    // Store data column: STORE DATA (taller — fills from R8 down)
+    // From R8=−0.5 to bottom −7 = 6.5 height, center −3.75
+    { id: `${p}.store-data`, label: 'Store Data', localX: 2.5, localZ: -3.75, width: 1, depth: 6.5, height: 0.15 },
+    // Memory column: L2 Cache fills from R12 down (after L1 at R11), center BOT_C
+    { id: `${p}.l2`,       label: 'up to 3 MB L2 Cache', localX: 5.5, localZ: BOT_C, width: 5, depth: BOT_H, height: 0.15 },
   ]
 }
+
 
 // Legacy 4-block helper kept for any non-P-core caller (currently none).
 // Lion Cove P-cores now use lionCoveBoardBlocks for the full-pipeline view.

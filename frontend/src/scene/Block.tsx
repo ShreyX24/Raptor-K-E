@@ -159,12 +159,11 @@ export function Block({
     // Phase 4 boot gate: lidded → invisible; delidding/delidded → use focusPath target
     if (bootState === 'lidded') targetOpacity = 0
 
-    // Context-mode gate: only blocks STRICTLY INSIDE the context subtree stay
-    // visible. The context block itself and everything outside it (Base, IHS,
-    // L0 chiplets, ancestor wireframes, all other L1 siblings) all hide.
-    if (contextActive) {
-      if (!isInsideContextSubtree) targetOpacity = 0
-    }
+    // Context-mode gate: in context mode, ContextProjector renders the entire
+    // inner board (vertical poster + cells + trapezium + projection lines), so
+    // ALL Block instances hide — including those inside the context subtree.
+    if (contextActive) targetOpacity = 0
+    void isInsideContextSubtree // kept for future use (e.g. hover bridges)
 
     const canHover = isVisible && !isSibling && !isAncestor && hoveredHere
 

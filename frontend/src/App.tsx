@@ -2,7 +2,6 @@ import { ChipScene } from '@/scene/ChipScene'
 import { Breadcrumb } from '@/hud/Breadcrumb'
 import { LoadTraceButton } from '@/hud/LoadTraceButton'
 import { FindingsPanel } from '@/hud/FindingsPanel'
-import { ContextNameTag } from '@/hud/ContextNameTag'
 
 export default function App() {
   return (
@@ -19,7 +18,6 @@ export default function App() {
       <Breadcrumb />
       <LoadTraceButton />
       <FindingsPanel />
-      <ContextNameTag />
 
       <ChipScene />
     </div>

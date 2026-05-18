@@ -25,6 +25,7 @@ import { Layer } from './Layer'
 import { Block, DRILL_GAP } from './Block'
 import { BaseTile } from './BaseTile'
 import { IHS } from './IHS'
+import { ContextProjector } from './ContextProjector'
 import { chipSpec } from '@/data/chip-spec'
 import { layoutChildren } from '@/util/packChildren'
 import { useChoreographer } from '@/camera/Choreographer'
@@ -155,6 +156,9 @@ export function ChipScene() {
           </Fragment>
         )
       })}
+
+      {/* Context mode: 3D projector trapezium + 4 corner-to-corner lines */}
+      <ContextProjector />
 
       <CameraControls ref={controlsRef} makeDefault smoothTime={0.6} />
       <PostFX />

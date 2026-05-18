@@ -96,28 +96,28 @@ export function useChoreographer(controlsRef: RefObject<CameraControls | null>) 
       return
     }
 
-    // Context mode — a deep block (P-core with enterContext) was focused.
-    // Frame the inner board (children layer above the context block) at canonical
-    // angle, tight enough to nearly fill the viewport between top breadcrumb and
-    // bottom name tag. Lion Cove board is 8 × 6 in world units; at FOV 38° with
-    // ELEV 72°, distance ≈ 7.0 makes it cover ~85% of the available vertical
-    // space (text inside small blocks becomes readable).
+    // Context mode — frame the vertical Lion Cove board head-on (like looking
+    // at a bulletin board on a wall). Camera at +Z, looking in -Z direction.
+    //
+    // Board is 22 × 10 world units centered at world (0, 6, 0).
+    // Trapezium occupies Y ≈ [-1.4, 0]. Total stack: Y ≈ [-1.4, 11] (12.4 tall).
+    // Aspect 22:12.4 ≈ 1.77 — exactly matches 16:9 viewport.
+    //
+    // To fit width: distance = (BOARD_W / 2) / tan(hFOV/2)
+    //   hFOV at vFOV=38° aspect=1.78 ≈ 63.4°, tan = 0.618 → d = 11 / 0.618 = 17.8
+    // For visible margin (95% width fill): d ≈ 18.
     const context = computeContextInfo(focusPath)
     if (context.active && context.path) {
-      const contextLeafId = context.path[context.path.length - 1]
-      const contextMesh = getMesh(contextLeafId)
-      if (contextMesh) {
-        _box.setFromObject(contextMesh)
-        const cx = (_box.min.x + _box.max.x) / 2
-        const cz = (_box.min.z + _box.max.z) / 2
-        const cy = _box.max.y + DRILL_GAP + CHILD_HEIGHT
-        const distance = 7.0
-        const camX = cx + distance * Math.cos(CANONICAL_ELEV) * Math.sin(CANONICAL_AZIM)
-        const camY = cy + distance * Math.sin(CANONICAL_ELEV)
-        const camZ = cz + distance * Math.cos(CANONICAL_ELEV) * Math.cos(CANONICAL_AZIM)
-        controls.setLookAt(camX, camY, camZ, cx, cy, cz, true).catch(() => {})
-        return
-      }
+      const targetX = 0
+      const targetY = 4.5  // slight bias toward the bottom so the trapezium has room
+      const targetZ = 0
+      const ELEV_CTX = (6 * Math.PI) / 180 // 6° — subtle downward tilt
+      const distance = 20   // d=20 leaves margin top (under breadcrumb) and bottom
+      const camX = targetX
+      const camY = targetY + distance * Math.sin(ELEV_CTX)
+      const camZ = targetZ + distance * Math.cos(ELEV_CTX)
+      controls.setLookAt(camX, camY, camZ, targetX, targetY, targetZ, true).catch(() => {})
+      return
     }
 
     const targetId = focusPath[focusPath.length - 1]
