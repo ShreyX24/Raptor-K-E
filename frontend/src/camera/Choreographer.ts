@@ -97,16 +97,17 @@ export function useChoreographer(controlsRef: RefObject<CameraControls | null>) 
     }
 
     // Context mode — head-on horizontal view of the vertical Lion Cove board.
-    // Board 22 × 9.6 centered at (0, 5.5, 0). Trap occupies Y∈[-3,-1].
-    // Total stack Y range: [-3, 10.3]. Camera frames the whole stack with
-    // some top margin for breadcrumb and visual breathing room.
+    // Trapezium currently DISABLED so the board uses the full frame.
+    // Board 22 × 11.5 centered at (0, 5.75, 0). Distance 18 fits width
+    // ~99% and height ~93%, leaving 0.45 world units margin top + bottom
+    // (top reserved for the breadcrumb HUD).
     const context = computeContextInfo(focusPath)
     if (context.active && context.path) {
       const targetX = 0
-      const targetY = 3.5  // midpoint of stack [-3, 10.3] ≈ 3.65
+      const targetY = 5.75 // board center
       const targetZ = 0
-      const ELEV_CTX = (5 * Math.PI) / 180 // 5° — subtle downward tilt
-      const distance = 21
+      const ELEV_CTX = (3 * Math.PI) / 180 // 3° — very subtle downward tilt
+      const distance = 18
       const camX = targetX
       const camY = targetY + distance * Math.sin(ELEV_CTX)
       const camZ = targetZ + distance * Math.cos(ELEV_CTX)

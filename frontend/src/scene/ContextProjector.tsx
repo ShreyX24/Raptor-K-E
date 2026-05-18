@@ -43,21 +43,24 @@ import { SILICON_FONT_URL } from '@/hud/fonts'
 // Board face is in world X-Y plane at Z=0. Cells from chip-spec come in raw
 // localX∈[-8,8] / localZ∈[-7,7] coordinates; we SCALE them to fit a wider
 // (more 16:9-ish) board so the canvas fills the viewport. Aspect 22:10 ≈ 2.2.
+// Board dimensions — tuned to match viewport aspect (16:9 ≈ 1.78) so the
+// board fills the frame edge-to-edge with minimal black margins. Board face
+// aspect: 22 / 11.5 = 1.91 — slight wider-than-viewport so width fills 100%.
 const BOARD_W = 22                    // world width  (X) of the board face
-const BOARD_H = 9.6                   // world height (Y) of the board face — leaves room for breadcrumb
-const BOARD_CENTER_Y = 5.5            // board middle, world Y — lower so top doesn't hit breadcrumb
+const BOARD_H = 11.5                  // world height (Y) of the board face
+const BOARD_CENTER_Y = 5.75           // board middle, world Y — center vertically
 const BOARD_FACE_Z = 0
 const CELL_SCALE_X = BOARD_W / 16     // 1.375 (chip-spec X span is 16)
-const CELL_SCALE_Y = BOARD_H / 14     // 0.686 (chip-spec Z span is 14)
+const CELL_SCALE_Y = BOARD_H / 14     // 0.821 (chip-spec Z span is 14)
 
-// Trapezium podium (the P-core "projector" base) — below the board with a
-// noticeable gap so the 4 projection lines are visible diverging up to the
-// board corners.
-const TRAP_TOP_Y    = -1.0  // trapezium TOP face Y
-const TRAP_BOT_Y    = -3.0  // trapezium BOTTOM face Y (further down for taller trap)
-const TRAP_TOP_W    = 7.0   // narrower at top
+// Trapezium podium — DISABLED for now per user direction. Keep the constants
+// + geometry intact so we can re-enable later by uncommenting the render
+// block at the bottom of this component.
+const TRAP_TOP_Y    = -1.0
+const TRAP_BOT_Y    = -3.0
+const TRAP_TOP_W    = 7.0
 const TRAP_TOP_D    = 1.4
-const TRAP_BOT_W    = 12.0  // wider at bottom — more wide-angled
+const TRAP_BOT_W    = 12.0
 const TRAP_BOT_D    = 2.6
 
 // Bezel inset for the cyan rim on the board frame
@@ -247,7 +250,11 @@ export function ContextProjector() {
         ))}
       </group>
 
-      {/* Trapezium podium — wide base, narrow top, sloped sides */}
+      {/* ─── Trapezium podium + projection lines — DISABLED ─────────────
+          User direction: hide the P-core trapezium for now so the board can
+          fill the full viewport. The mesh, label, and corner lines remain
+          in code so re-enabling is just uncommenting this block. ──── */}
+      {/*
       <mesh geometry={trapGeom} castShadow receiveShadow>
         <meshPhysicalMaterial
           color="#1a222d"
@@ -262,7 +269,6 @@ export function ContextProjector() {
         <Edges color="#00b2ff" threshold={1} lineWidth={1.8} />
       </mesh>
 
-      {/* Trapezium label — engraved on the FRONT slanted face */}
       <Text
         position={[0, (TRAP_BOT_Y + TRAP_TOP_Y) / 2, TRAP_BOT_D / 2 + 0.02]}
         font={SILICON_FONT_URL}
@@ -277,7 +283,6 @@ export function ContextProjector() {
         {ctx.block.label}
       </Text>
 
-      {/* 4 corner projection lines: board corner → trapezium top corner */}
       {boardCornersFront.map((boardPt, i) => (
         <Line
           key={`proj-${i}`}
@@ -288,6 +293,7 @@ export function ContextProjector() {
           opacity={0.82}
         />
       ))}
+      */}
     </group>
   )
 }
