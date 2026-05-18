@@ -82,9 +82,26 @@ export function Breadcrumb() {
         )
       })}
 
-      <span className="ml-2 pl-2 border-l border-[oklch(0.30_0.02_250)]
-                       text-[oklch(0.50_0.02_250)] text-[10px]">
-        Esc to pop
+      {/* Depth badge — quotes the current drill level so the user can say
+          exactly which layer they're looking at when reporting feedback.
+          L1 = drilled into a tile (seeing its children),
+          L2 = drilled twice, etc. L0 has no breadcrumb (handled above). */}
+      <span
+        className="ml-2 pl-2 border-l border-[oklch(0.30_0.02_250)]
+                   flex items-center gap-2"
+      >
+        <span
+          className="px-1.5 py-0.5 rounded text-[10px] font-bold
+                     text-[oklch(0.85_0.18_220)]
+                     bg-[oklch(0.78_0.18_220_/_0.15)]
+                     border border-[oklch(0.78_0.18_220_/_0.35)]"
+          title={`Drill depth ${focusPath.length}`}
+        >
+          L{focusPath.length}
+        </span>
+        <span className="text-[oklch(0.50_0.02_250)] text-[10px]">
+          Esc to pop
+        </span>
       </span>
     </div>
   )
