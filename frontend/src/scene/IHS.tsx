@@ -50,18 +50,27 @@ export function IHS({ width, depth, height = 0.45, y = IHS_Y_REST }: IHSProps) {
 
   // When delidding starts, lerp position up and opacity down; when fully faded,
   // flip state to 'delidded' (single side-effect, guarded so it fires once).
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const g = groupRef.current
     const m = matRef.current
     if (!g || !m) return
 
     if (bootState === 'lidded') {
+      const beforeY = g.position.y
+      const beforeOpacity = m.opacity
       g.position.y = THREE.MathUtils.damp(g.position.y, y, DELID_DAMP, dt)
       m.opacity = THREE.MathUtils.damp(m.opacity, 1, DELID_DAMP, dt)
+      // Demand-mode: keep rendering until settled at lidded rest position
+      if (Math.abs(g.position.y - y) > 0.001 || Math.abs(m.opacity - 1) > 0.002) {
+        state.invalidate()
+      }
+      void beforeY; void beforeOpacity
     } else if (bootState === 'delidding') {
       g.position.y = THREE.MathUtils.damp(g.position.y, IHS_Y_LIFTED, DELID_DAMP, dt)
       m.opacity = THREE.MathUtils.damp(m.opacity, 0, DELID_DAMP, dt)
       if (m.opacity < 0.02) finishDelid()
+      // Keep ticking until the lift completes
+      state.invalidate()
     } else {
       // delidded — keep invisible above so it doesn't block raycasts
       m.opacity = 0

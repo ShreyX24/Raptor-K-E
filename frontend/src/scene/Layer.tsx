@@ -68,7 +68,7 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
   const isAncestor = isFocusedTile && focusPath.length >= 1 // I'm drilled into (focused or ancestor)
   const isSibling = focusPath.length > 0 && !isFocusedTile
 
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const g = groupRef.current
     const m = matRef.current
     const l = lightRef.current
@@ -105,6 +105,17 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
       dt,
     )
     l.intensity = THREE.MathUtils.damp(l.intensity, targetLight, DAMP, dt)
+
+    // Demand-mode: keep the loop alive while still in motion. Settles when all
+    // four properties are within their respective epsilons of their targets.
+    if (
+      Math.abs(g.position.y - targetY) > 0.001 ||
+      Math.abs(m.opacity - targetOpacity) > 0.002 ||
+      Math.abs(m.emissiveIntensity - targetEmissive) > 0.01 ||
+      Math.abs(l.intensity - targetLight) > 0.02
+    ) {
+      state.invalidate()
+    }
   })
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {

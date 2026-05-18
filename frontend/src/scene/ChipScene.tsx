@@ -75,8 +75,13 @@ export function ChipScene() {
 
   return (
     <Canvas
-      // Phase 3 still measuring with r3f-perf; switch back to "demand" in Phase 4.
-      frameloop="always"
+      // Phase 4 M11: switched to "demand". Each animated useFrame in the scene
+      // calls state.invalidate() while still in motion (Layer / Block / IHS).
+      // Pointer events auto-invalidate. CRITICAL severity blocks keep
+      // invalidating intentionally (the pulse never settles). Result: idle
+      // scenes stop drawing, saving battery on laptops without sacrificing
+      // animation smoothness.
+      frameloop="demand"
       dpr={[1, 2]}
       shadows
       gl={{

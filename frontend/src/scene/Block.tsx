@@ -29,6 +29,8 @@ import type { BlockSpec } from '@/data/chip-spec'
 import { useStore } from '@/state/store'
 import { packChildren } from '@/util/packChildren'
 import { registerMesh, unregisterMesh } from './meshRegistry'
+import { severityColors, severityIntensity, PULSE_RATE } from '@/util/severity'
+import { BlockMetrics } from '@/hud/BlockMetrics'
 
 export const DRILL_GAP = 2.0
 export const CHILD_HEIGHT = 0.32
@@ -39,6 +41,10 @@ const FULL_OPACITY = 1.0
 const EMISSIVE_REST = 0.3
 const EMISSIVE_HOVER = 1.2
 const DAMP = 6
+
+// Reusable Three.js objects — hoisted to avoid per-frame allocations.
+const _restEmissiveColor = new THREE.Color('#0a3a55')
+const _targetEmissive = new THREE.Color()
 
 interface BlockProps {
   spec: BlockSpec
@@ -74,6 +80,8 @@ export function Block({
   const pushFocus = useStore((s) => s.pushFocus)
   const hover = useStore((s) => s.hover)
   const bootState = useStore((s) => s.bootState)
+  // Severity for this block (Phase 4 binding). Undefined when no finding present.
+  const severity = useStore((s) => s.findings[spec.id]?.severity)
 
   // ---- state vs focusPath ----
   // L0 tile id sits at focusPath[0]; my drillDepth is 1 for L1 children of an L0 tile.
@@ -99,7 +107,7 @@ export function Block({
   const childY = position[1] + height / 2 + DRILL_GAP
 
   // ---- per-frame: damp opacity + emissive toward target ----
-  useFrame((_, dt) => {
+  useFrame((state, dt) => {
     const g = groupRef.current
     const m = matRef.current
     if (!g || !m) return
@@ -114,14 +122,52 @@ export function Block({
     // Phase 4 boot gate: lidded → invisible; delidding/delidded → use focusPath target
     if (bootState === 'lidded') targetOpacity = 0
 
-    // Only allow hover bump when I'm the deepest-focused block's child (i.e., clickable)
     const canHover = isVisible && !isSibling && !isAncestor && hoveredHere
-    const targetEmissive = canHover ? EMISSIVE_HOVER : EMISSIVE_REST
+
+    // Severity drives emissive color + intensity floor for visible (non-sibling/ghost) blocks.
+    // CRITICAL pulses around its base intensity at PULSE_RATE rad/s.
+    // Hover bump stacks on top.
+    let targetEmissiveIntensity: number
+    if (severity && isVisible && !isSibling && !isAncestor) {
+      _targetEmissive.copy(severityColors[severity])
+      let base = severityIntensity[severity]
+      if (severity === 'CRITICAL') {
+        // Pulse 60% → 120% of base intensity (skill: only CRITICAL pulses)
+        const pulse = (Math.sin(state.clock.elapsedTime * PULSE_RATE) + 1) * 0.5
+        base = base * (0.6 + pulse * 0.6)
+      }
+      targetEmissiveIntensity = base + (canHover ? 0.8 : 0)
+    } else {
+      _targetEmissive.copy(_restEmissiveColor)
+      targetEmissiveIntensity = canHover ? EMISSIVE_HOVER : EMISSIVE_REST
+    }
 
     m.opacity = THREE.MathUtils.damp(m.opacity, targetOpacity, DAMP, dt)
-    m.emissiveIntensity = THREE.MathUtils.damp(m.emissiveIntensity, targetEmissive, DAMP, dt)
+    m.emissiveIntensity = THREE.MathUtils.damp(
+      m.emissiveIntensity,
+      targetEmissiveIntensity,
+      DAMP,
+      dt,
+    )
+    // Damp the emissive color RGB channels toward target
+    m.emissive.r = THREE.MathUtils.damp(m.emissive.r, _targetEmissive.r, DAMP, dt)
+    m.emissive.g = THREE.MathUtils.damp(m.emissive.g, _targetEmissive.g, DAMP, dt)
+    m.emissive.b = THREE.MathUtils.damp(m.emissive.b, _targetEmissive.b, DAMP, dt)
+
     // Hide the group entirely when essentially invisible (saves draw calls)
     g.visible = m.opacity > 0.01
+
+    // Demand-mode: keep ticking while animating, OR forever if CRITICAL (pulses).
+    if (
+      severity === 'CRITICAL' ||
+      Math.abs(m.opacity - targetOpacity) > 0.002 ||
+      Math.abs(m.emissiveIntensity - targetEmissiveIntensity) > 0.01 ||
+      Math.abs(m.emissive.r - _targetEmissive.r) > 0.005 ||
+      Math.abs(m.emissive.g - _targetEmissive.g) > 0.005 ||
+      Math.abs(m.emissive.b - _targetEmissive.b) > 0.005
+    ) {
+      state.invalidate()
+    }
   })
 
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
@@ -169,6 +215,12 @@ export function Block({
           />
           <Edges color="#00b2ff" threshold={15} />
         </mesh>
+
+        {/* PMU counter overlay — only mounted when block is visible at the current
+            drill depth and has metrics. Anchored to the block's top face. */}
+        {isVisible && !isSibling && !isAncestor && (
+          <BlockMetrics blockId={spec.id} topY={height / 2} />
+        )}
       </group>
 
       {/* Recursively render children — they decide their own visibility */}
