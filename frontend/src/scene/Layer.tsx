@@ -74,8 +74,11 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
     const l = lightRef.current
     if (!g || !m || !l) return
 
-    // Y target: only hover-lift in ground state
-    const targetY = isGroundState && hovered ? liftedY : restY
+    // Y target: only hover-lift in ground state, AND only after delid.
+    // While `lidded`, hard-clamp to rest so an out-of-band hover (BUG-001 repro)
+    // can't visibly push the chiplet through the IHS lid.
+    const allowLift = isGroundState && hovered && bootState !== 'lidded'
+    const targetY = allowLift ? liftedY : restY
 
     // Opacity target: full in ground state, 0.15 if drilled into, 0.08 if sibling
     let targetOpacity: number
@@ -86,14 +89,13 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
     // Phase 4 boot gate: lidded → invisible; delidding/delidded → use focusPath target
     if (bootState === 'lidded') targetOpacity = 0
 
-    // Emissive target: hover bump only in ground state
-    const targetEmissive =
-      isGroundState && hovered ? EMISSIVE_HOVER : EMISSIVE_REST
+    // Emissive target: hover bump only when liftable (post-delid + ground state)
+    const targetEmissive = allowLift ? EMISSIVE_HOVER : EMISSIVE_REST
 
-    // Underglow target: brighter on hover in ground state; dim when drilled or sibling
+    // Underglow target: brighter on hover post-delid; dim when drilled, sibling, or lidded
     let targetLight: number
-    if (isAncestor || isSibling) targetLight = 0
-    else if (isGroundState && hovered) targetLight = LIGHT_HOVER
+    if (bootState === 'lidded' || isAncestor || isSibling) targetLight = 0
+    else if (allowLift) targetLight = LIGHT_HOVER
     else targetLight = LIGHT_REST
 
     g.position.y = THREE.MathUtils.damp(g.position.y, targetY, DAMP, dt)
@@ -105,6 +107,11 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
       dt,
     )
     l.intensity = THREE.MathUtils.damp(l.intensity, targetLight, DAMP, dt)
+
+    // BUG-001 fix: <Edges> uses its own LineBasicMaterial that ignores the
+    // parent mesh's opacity. Hide the entire group when essentially invisible
+    // so neither the box nor the Edges can poke through (also blocks raycasts).
+    g.visible = m.opacity > 0.01
 
     // Demand-mode: keep the loop alive while still in motion. Settles when all
     // four properties are within their respective epsilons of their targets.
@@ -118,13 +125,18 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
     }
   })
 
+  // BUG-001/002 fix: pointer events must be inert while the IHS lid is on.
+  // The chiplet meshes are opacity-zero during 'lidded' but still raycast targets;
+  // a stray click would corrupt focusPath and break the cinematic boot framing.
   const handleClick = (e: ThreeEvent<MouseEvent>) => {
+    if (bootState === 'lidded') return
     if (!isGroundState) return // already drilled in; ignore further clicks at L0
     e.stopPropagation()
     pushFocus(tileId)
   }
 
   const handleOver = (e: ThreeEvent<PointerEvent>) => {
+    if (bootState === 'lidded') return
     if (!isGroundState) return
     e.stopPropagation()
     setHovered(true)
@@ -134,7 +146,7 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
   const handleOut = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation()
     setHovered(false)
-    document.body.style.cursor = 'default'
+    if (bootState !== 'lidded') document.body.style.cursor = 'default'
   }
 
   return (

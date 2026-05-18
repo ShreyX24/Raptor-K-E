@@ -77,13 +77,15 @@ export const chipSpec: BlockSpec = {
           depth: 3,
           height: 0.3,
           children: [
-            { id: 'gpu.slice-0.geom',   label: 'Geometry Frontend',       width: 1.2, depth: 0.4, height: 0.1 },
-            { id: 'gpu.slice-0.raster', label: 'Rasterizer + Hier-Z',     width: 1.2, depth: 0.4, height: 0.1 },
-            { id: 'gpu.slice-0.rop',    label: '2× Pixel Backend (ROP)',  width: 1.2, depth: 0.4, height: 0.1 },
-            { id: 'gpu.slice-0.xe-0', label: 'Xe-core 0 (16 VEs + 192 KB L1)', width: 0.9, depth: 0.9, height: 0.2, children: euGrid('gpu.slice-0.xe-0') },
-            { id: 'gpu.slice-0.xe-1', label: 'Xe-core 1 (16 VEs + 192 KB L1)', width: 0.9, depth: 0.9, height: 0.2, children: euGrid('gpu.slice-0.xe-1') },
-            { id: 'gpu.slice-0.xe-2', label: 'Xe-core 2 (16 VEs + 192 KB L1)', width: 0.9, depth: 0.9, height: 0.2, children: euGrid('gpu.slice-0.xe-2') },
-            { id: 'gpu.slice-0.xe-3', label: 'Xe-core 3 (16 VEs + 192 KB L1)', width: 0.9, depth: 0.9, height: 0.2, children: euGrid('gpu.slice-0.xe-3') },
+            { id: 'gpu.slice-0.geom',   label: 'Geometry Frontend',         width: 1.2, depth: 0.4, height: 0.1 },
+            { id: 'gpu.slice-0.raster', label: 'Rasterizer + Hier-Z',       width: 1.2, depth: 0.4, height: 0.1 },
+            // BUG-009 fix: split the aggregate "2× Pixel Backend (ROP)" into two distinct nodes
+            { id: 'gpu.slice-0.rop-0',  label: 'Pixel Backend (ROP 0)',     width: 1.0, depth: 0.4, height: 0.1 },
+            { id: 'gpu.slice-0.rop-1',  label: 'Pixel Backend (ROP 1)',     width: 1.0, depth: 0.4, height: 0.1 },
+            { id: 'gpu.slice-0.xe-0', label: 'Xe-core 0 (16 VEs + 192 KB L1)', width: 0.9, depth: 0.9, height: 0.2, children: xeCoreBlocks('gpu.slice-0.xe-0') },
+            { id: 'gpu.slice-0.xe-1', label: 'Xe-core 1 (16 VEs + 192 KB L1)', width: 0.9, depth: 0.9, height: 0.2, children: xeCoreBlocks('gpu.slice-0.xe-1') },
+            { id: 'gpu.slice-0.xe-2', label: 'Xe-core 2 (16 VEs + 192 KB L1)', width: 0.9, depth: 0.9, height: 0.2, children: xeCoreBlocks('gpu.slice-0.xe-2') },
+            { id: 'gpu.slice-0.xe-3', label: 'Xe-core 3 (16 VEs + 192 KB L1)', width: 0.9, depth: 0.9, height: 0.2, children: xeCoreBlocks('gpu.slice-0.xe-3') },
           ],
         },
       ],
@@ -166,8 +168,10 @@ export const chipSpec: BlockSpec = {
       height: 0.4,
       children: [
         { id: 'ioe.tbt4',        label: 'Thunderbolt 4 Controller', width: 1.5, depth: 1, height: 0.2 },
-        { id: 'ioe.pcie',        label: 'PCIe 5.0 PHY',             width: 2,   depth: 1, height: 0.2 },
+        { id: 'ioe.pcie',        label: 'PCIe 5.0 PHY (M.2 only)',  width: 2,   depth: 1, height: 0.2 },
         { id: 'ioe.display-phy', label: 'Display PHY',              width: 1.5, depth: 1, height: 0.2 },
+        // BUG-007 fix: IOE D2D / FDI Bridge node added per LAYER-PLAN.md
+        { id: 'ioe.d2d',         label: 'IOE D2D / FDI Bridge',     width: 1.5, depth: 1, height: 0.2 },
       ],
     },
 
@@ -221,9 +225,13 @@ function skymontClusterBlocks(parentId: string): BlockSpec[] {
   ]
 }
 
-// Helper: 16 EU grid for a Xe-core (instanced)
-function euGrid(parentId: string): BlockSpec[] {
+// Helper: Xe-core internals — 16 Vector Engines (Intel renamed EU → VE for
+// the ARL Xe-LPG generation per LAYER-PLAN.md). Also includes Sampler + RT Unit.
+// BUG-008 fix: was previously labeled "16 Execution Units" with id `.eus`.
+function xeCoreBlocks(parentId: string): BlockSpec[] {
   return [
-    { id: `${parentId}.eus`, label: '16 Execution Units', width: 0.7, depth: 0.7, height: 0.1, instanceOf: 'eu', count: 16 },
+    { id: `${parentId}.ves`,     label: '16 Vector Engines (VEs)', width: 0.7, depth: 0.7, height: 0.1, instanceOf: 've', count: 16 },
+    { id: `${parentId}.sampler`, label: 'Sampler',                  width: 0.5, depth: 0.3, height: 0.08 },
+    { id: `${parentId}.rt`,      label: 'RT Unit',                  width: 0.5, depth: 0.3, height: 0.08 },
   ]
 }

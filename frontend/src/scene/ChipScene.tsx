@@ -25,45 +25,51 @@ import { Layer } from './Layer'
 import { Block, DRILL_GAP } from './Block'
 import { BaseTile } from './BaseTile'
 import { IHS } from './IHS'
+import { FillerTile } from './FillerTile'
 import { chipSpec } from '@/data/chip-spec'
 import { packChildren } from '@/util/packChildren'
 import { useChoreographer } from '@/camera/Choreographer'
 
 /**
- * L0 chiplet layout — PHYSICAL DIE-SHOT (per LAYER-PLAN.md).
- *   - Compute Tile (top-left)        - GPU Tile (top-right)
- *   - IOE Tile     (bottom-left)     - SoC Tile (bottom-right)
+ * L0 chiplet layout — ARL family floorplan (200S / 200S+).
  *
- * Per user direction: actual mm² is NOT preserved visually — placement matters,
- * not relative size. Equal-quadrant grid for readable hover targets.
+ * Reference: F:\Raptor-K-E\reference images\Screenshot 2026-05-18 203104.png
+ *
+ * Top section (north half):
+ *   - empty strengthening filler tile (top-left, small)
+ *   - IO Tile (bottom-left, under filler)
+ *   - Compute Tile (right, LARGE — spans full top-section height)
+ * Middle: SoC Tile (full width)
+ * Bottom: GPU Tile (full width, shorter band)
+ *
+ * Not a 2×2 quadrant grid. Real ARL packages place Compute as the dominant
+ * top-right tile with IO + a structural filler die stacked on its left.
  */
-// Real LGA1851 package is portrait: ~37.5mm wide × 45mm tall.
-// Base is shaped the same way — narrower in X, longer in Z — so the chip's
-// "head" (north edge, +cards face / Compute+GPU row) reads as the SHORT edge
-// at the top of the screen and the "tail" (south edge / IOE+SoC row) as the
-// short edge at the bottom. Reference: F:\Raptor-K-E\reference images\processor-s-l400.jpg
-const BASE_W = 12 // X (width = short axis)
-const BASE_D = 18 // Z (depth = long axis, head→tail)
+const BASE_W = 12
+const BASE_D = 18
 
-// Lift chiplets ~0.7 above the base top (base top = 0.15, chiplet bottom = 0.5)
-// so each chiplet visibly floats and casts a cyan underglow on the substrate.
 const Y_REST = 0.9
 const CHIPLET_H = 0.5
 
-// 2×2 portrait grid. Each chiplet is taller (Z) than wide (X) to match
-// the package aspect ratio. 1-unit gap between adjacent chiplets so the dark
-// substrate shows through the "cracks".
+// Top-section X split: left column at x≈-3.25 (width 3.5), Compute at x≈2 (width 6)
+// Z bands (north → south):
+//   filler:    z = -7  (depth 2.5)
+//   ioe:       z = -3.75 (depth 3.5)   — totals 6 with filler, equal to Compute height
+//   compute:   z = -5   (depth 6)
+//   soc:       z = 1.75 (depth 5)
+//   gpu:       z = 6.75 (depth 3)
 const L0_LAYOUT: Record<
   string,
   { x: number; z: number; w: number; d: number }
 > = {
-  // Top row (north / head) — Compute + GPU, taller-than-wide chiplets
-  compute: { x: -3, z: -4, w: 5, d: 7 },
-  gpu:     { x:  3, z: -4, w: 5, d: 7 },
-  // Bottom row (south / tail) — IOE + SoC
-  ioe:     { x: -3, z:  4, w: 5, d: 7 },
-  soc:     { x:  3, z:  4, w: 5, d: 7 },
+  compute: { x:  2,    z: -5,    w: 6,   d: 6   },
+  ioe:     { x: -3.25, z: -3.75, w: 3.5, d: 3.5 },
+  soc:     { x:  0,    z:  1.75, w: 10,  d: 5   },
+  gpu:     { x:  0,    z:  6.75, w: 10,  d: 3   },
 }
+
+// Non-interactive structural filler — top-left corner above IOE
+const FILLER_LAYOUT = { x: -3.25, z: -7, w: 3.5, d: 2.5 } as const
 
 export function ChipScene() {
   // Look up the BlockSpec for each L0 tile (drives the recursive Block subtree)
@@ -83,7 +89,9 @@ export function ChipScene() {
       // animation smoothness.
       frameloop="demand"
       dpr={[1, 2]}
-      shadows
+      // BUG-011 fix: pin shadow map type to PCFShadowMap explicitly. Default
+      // `shadows` resolves to PCFSoftShadowMap which Three.js has deprecated.
+      shadows={{ type: THREE.PCFShadowMap }}
       gl={{
         antialias: false,
         powerPreference: 'high-performance',
@@ -100,8 +108,12 @@ export function ChipScene() {
         gl.toneMappingExposure = 1.0
       }}
     >
-      <color attach="background" args={['#0a1628']} />
-      <fog attach="fog" args={['#0a1628', 30, 70]} />
+      {/* BUG-004 fix: aligned with the body background token `oklch(0.18 0.02 250)`
+          via the closest sRGB equivalent. Three.js r166+ supports oklch via
+          setStyle but `<color args>` takes a string passed straight to Color
+          which doesn't parse oklch — so we use the precomputed hex. */}
+      <color attach="background" args={['#1c2230']} />
+      <fog attach="fog" args={['#1c2230', 30, 70]} />
 
       <Lighting />
 
@@ -110,6 +122,14 @@ export function ChipScene() {
       </Suspense>
 
       <BaseTile width={BASE_W} depth={BASE_D} />
+
+      {/* Structural filler die (top-left). Non-interactive — no drill, no hover. */}
+      <FillerTile
+        position={[FILLER_LAYOUT.x, Y_REST, FILLER_LAYOUT.z]}
+        width={FILLER_LAYOUT.w}
+        depth={FILLER_LAYOUT.d}
+        height={CHIPLET_H}
+      />
 
       {/* IHS — covers the chiplets while bootState='lidded'; lifts+fades during 'delidding' */}
       <IHS width={BASE_W} depth={BASE_D} />

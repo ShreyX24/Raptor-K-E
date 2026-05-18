@@ -103,11 +103,16 @@ export function useChoreographer(controlsRef: RefObject<CameraControls | null>) 
     }
 
     // Custom orbit framing — fitToBox flattens the camera angle when the box
-    // is wide+shallow (which every layer is). We compute a fixed isometric
-    // 30°-elevation / 45°-azimuth view centered on the new layer instead.
+    // is wide+shallow (which every layer is). We compute a fixed near-top-down
+    // 72°-elevation / 0°-azimuth view (CANONICAL_*) centered on the new layer
+    // instead. See memory [[camera-top-down]] for the locked angle.
     _box.setFromObject(targetMesh)
     const focusedSpec = findBlockSpec(chipSpec, focusPath)
-    const hasChildren = !!focusedSpec?.children?.length
+    // BUG-006 follow-up: instanceOf/count counts as drillable too — the
+    // child Block synthesizes N lanes from those, same as an explicit children array.
+    const hasChildren =
+      !!focusedSpec?.children?.length ||
+      (!!focusedSpec?.instanceOf && !!focusedSpec?.count && focusedSpec.count > 0)
 
     // Center the camera on the NEW layer (above the focused chiplet) if drillable,
     // or on the focused chiplet itself if it's a leaf.

@@ -8,15 +8,18 @@
  *
  * Visual reference: F:\Raptor-K-E\reference images\processor-s-l400.jpg
  *
- *   - Brushed dark nickel: color #3a3d42, high metalness, moderate roughness
+ *   - Brushed dark nickel: color #2a2d33, moderate metalness, high roughness
  *   - Anisotropic specular highlight running north-south (the brush direction)
- *   - Slight bevel on the top face (chamfered edges)
- *   - Sits at Y ≈ 2.0 — just above the chiplet rest level (0.9 + 0.5/2 = 1.15)
- *     so a small visible gap shows the chiplets peeking out at the perimeter
- *     during the lift animation
+ *   - Sits at Y ≈ 1.65 (lid center) just above the chiplet rest level (0.9)
+ *
+ * BUG-003 fix: the delid animation is time-driven (easeOutCubic over
+ * DELID_DURATION_MS) rather than damp-to-threshold, so the cinematic ~1 s beat
+ * is preserved. The previous damp-only approach completed in ~226 ms because
+ * `THREE.MathUtils.damp(1, 0, 5, dt)` crosses the 0.02 threshold within ~10
+ * frames.
  *
  * Anti-patterns avoided per skill SKILL.md:
- *   - No setState inside useFrame (only ref-mutation for opacity/position)
+ *   - No setState inside useFrame (only ref-mutation)
  *   - Hoisted constants; no new THREE.* allocations per frame
  */
 import { useEffect, useRef } from 'react'
@@ -39,38 +42,64 @@ interface IHSProps {
 // Animation constants — referenced by delidAnimation too
 export const IHS_Y_REST = 1.65 // lid center when 'lidded' (covers chiplets at Y_REST=0.9)
 export const IHS_Y_LIFTED = 6.0
-export const DELID_DAMP = 5
+/** Total delid duration in ms. Spec is ~1.2 s for the cinematic beat. */
+export const DELID_DURATION_MS = 1100
+/** Damp rate for the *lidded* settle animation (entering the rest pose). */
+const LIDDED_DAMP = 5
+
+// easeOutCubic — same curve the Phase 4 spec implied (camera-controls also uses cubic)
+function easeOutCubic(t: number): number {
+  const inv = 1 - t
+  return 1 - inv * inv * inv
+}
 
 export function IHS({ width, depth, height = 0.45, y = IHS_Y_REST }: IHSProps) {
   const groupRef = useRef<THREE.Group>(null!)
   const matRef = useRef<THREE.MeshPhysicalMaterial>(null!)
+  const delidStartTimeRef = useRef<number | null>(null)
 
   const bootState = useStore((s) => s.bootState)
   const finishDelid = useStore((s) => s.finishDelid)
 
-  // When delidding starts, lerp position up and opacity down; when fully faded,
-  // flip state to 'delidded' (single side-effect, guarded so it fires once).
+  // Capture the wall-clock start when bootState flips to 'delidding'
+  useEffect(() => {
+    if (bootState === 'delidding') {
+      delidStartTimeRef.current = performance.now()
+    } else if (bootState === 'lidded') {
+      delidStartTimeRef.current = null
+    }
+  }, [bootState])
+
   useFrame((state, dt) => {
     const g = groupRef.current
     const m = matRef.current
     if (!g || !m) return
 
     if (bootState === 'lidded') {
-      const beforeY = g.position.y
-      const beforeOpacity = m.opacity
-      g.position.y = THREE.MathUtils.damp(g.position.y, y, DELID_DAMP, dt)
-      m.opacity = THREE.MathUtils.damp(m.opacity, 1, DELID_DAMP, dt)
-      // Demand-mode: keep rendering until settled at lidded rest position
+      // Settle to rest pose — keep the damp here because there's no hard deadline
+      g.position.y = THREE.MathUtils.damp(g.position.y, y, LIDDED_DAMP, dt)
+      m.opacity = THREE.MathUtils.damp(m.opacity, 1, LIDDED_DAMP, dt)
       if (Math.abs(g.position.y - y) > 0.001 || Math.abs(m.opacity - 1) > 0.002) {
         state.invalidate()
       }
-      void beforeY; void beforeOpacity
     } else if (bootState === 'delidding') {
-      g.position.y = THREE.MathUtils.damp(g.position.y, IHS_Y_LIFTED, DELID_DAMP, dt)
-      m.opacity = THREE.MathUtils.damp(m.opacity, 0, DELID_DAMP, dt)
-      if (m.opacity < 0.02) finishDelid()
-      // Keep ticking until the lift completes
-      state.invalidate()
+      // Time-driven easing so the cinematic ~1.1 s beat is preserved regardless
+      // of frame rate. (BUG-003 fix: replaces damp-to-threshold which finished
+      // in ~226 ms on a 60 Hz display.)
+      const startedAt = delidStartTimeRef.current ?? performance.now()
+      const elapsedMs = performance.now() - startedAt
+      const t = Math.min(1, elapsedMs / DELID_DURATION_MS)
+      const eased = easeOutCubic(t)
+
+      g.position.y = y + (IHS_Y_LIFTED - y) * eased
+      // Opacity fades faster than the lift (out by 80% of duration)
+      m.opacity = Math.max(0, 1 - eased * 1.25)
+
+      if (t >= 1) {
+        finishDelid()
+      } else {
+        state.invalidate()
+      }
     } else {
       // delidded — keep invisible above so it doesn't block raycasts
       m.opacity = 0
@@ -97,14 +126,11 @@ export function IHS({ width, depth, height = 0.45, y = IHS_Y_REST }: IHSProps) {
           clearcoat={0.08}
           clearcoatRoughness={0.8}
           envMapIntensity={0.4}
-          // Anisotropic highlight runs north-south (along Z, the long axis) —
-          // matches the brushed-metal grain visible on the real 285K IHS.
           anisotropy={0.5}
           anisotropyRotation={Math.PI / 2}
           transparent
           opacity={1}
         />
-        {/* Subtle cyan rim at the lid edges — picks up selective Bloom */}
         <Edges color="#00b2ff" threshold={15} lineWidth={1} />
       </mesh>
 

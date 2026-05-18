@@ -27,7 +27,7 @@ import { Edges } from '@react-three/drei'
 
 import type { BlockSpec } from '@/data/chip-spec'
 import { useStore } from '@/state/store'
-import { packChildren } from '@/util/packChildren'
+import { packChildren, expandInstanceArray } from '@/util/packChildren'
 import { registerMesh, unregisterMesh } from './meshRegistry'
 import { severityColors, severityIntensity, PULSE_RATE } from '@/util/severity'
 import { BlockMetrics } from '@/hud/BlockMetrics'
@@ -98,11 +98,14 @@ export function Block({
   const isSibling = isVisible && focusPath.length > myIndex && !inFocusChain
   const hoveredHere = hoveredId === spec.id
 
-  // Children get packed inside my footprint, raised by DRILL_GAP
+  // Children get packed inside my footprint, raised by DRILL_GAP.
+  // BUG-006 fix: if this block declares instanceOf/count (e.g. decode×8),
+  // expandInstanceArray synthesizes the N lane specs so L4 drill reveals them.
+  const effectiveChildren = useMemo(() => expandInstanceArray(spec), [spec])
   const packedChildren = useMemo(() => {
-    if (!spec.children?.length) return []
-    return packChildren(spec.children, position[0], position[2], width, depth)
-  }, [spec.children, position[0], position[2], width, depth])
+    if (effectiveChildren.length === 0) return []
+    return packChildren(effectiveChildren, position[0], position[2], width, depth)
+  }, [effectiveChildren, position[0], position[2], width, depth])
 
   const childY = position[1] + height / 2 + DRILL_GAP
 
@@ -157,9 +160,13 @@ export function Block({
     // Hide the group entirely when essentially invisible (saves draw calls)
     g.visible = m.opacity > 0.01
 
-    // Demand-mode: keep ticking while animating, OR forever if CRITICAL (pulses).
+    // Demand-mode: keep ticking while animating, OR while a *visible* CRITICAL
+    // block needs its pulse. BUG-010 fix: don't burn frames pulsing an invisible
+    // block — the pulse term only matters when the user can actually see it.
+    const criticalPulseNeedsFrames =
+      severity === 'CRITICAL' && isVisible && !isSibling && !isAncestor
     if (
-      severity === 'CRITICAL' ||
+      criticalPulseNeedsFrames ||
       Math.abs(m.opacity - targetOpacity) > 0.002 ||
       Math.abs(m.emissiveIntensity - targetEmissiveIntensity) > 0.01 ||
       Math.abs(m.emissive.r - _targetEmissive.r) > 0.005 ||
