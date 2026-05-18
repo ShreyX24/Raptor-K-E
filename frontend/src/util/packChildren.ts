@@ -53,6 +53,37 @@ function humanizeBase(base: string): string {
   return base.charAt(0).toUpperCase() + base.slice(1)
 }
 
+/**
+ * Lay children out inside a parent's footprint.
+ *
+ *   - If parent's `layout === 'manual'`: use each child's explicit
+ *     `localX`/`localZ` (relative to parent center) and the child's own
+ *     `width`/`depth`. No padding adjustment — the spec author owns the gaps.
+ *   - Otherwise: grid-pack into ceil(sqrt(N)) columns, equal cell sizes.
+ *
+ * For instanced parents (`instanceOf` + `count`), `expandInstanceArray` runs
+ * before this and produces a regular children array, so they get the grid path.
+ */
+export function layoutChildren(
+  parent: BlockSpec,
+  children: BlockSpec[],
+  centerX: number,
+  centerZ: number,
+  totalW: number,
+  totalD: number,
+): PackedChild[] {
+  if (parent.layout === 'manual') {
+    return children.map((child) => ({
+      child,
+      x: centerX + (child.localX ?? 0),
+      z: centerZ + (child.localZ ?? 0),
+      w: child.width,
+      d: child.depth,
+    }))
+  }
+  return packChildren(children, centerX, centerZ, totalW, totalD)
+}
+
 export function packChildren(
   children: BlockSpec[],
   centerX: number,

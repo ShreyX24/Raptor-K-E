@@ -22,6 +22,19 @@ export interface BlockSpec {
   children?: BlockSpec[]
   instanceOf?: string
   count?: number
+  /**
+   * Layout strategy for the children's positions inside this block's footprint.
+   *   - 'auto' (default): packChildren grid-packs N children into ceil(sqrt(N)) cols.
+   *   - 'manual': each child must supply `localX`/`localZ` (relative to parent
+   *     center) and width/depth are used verbatim. Required for tiles whose
+   *     real floorplan differs sharply from a grid — e.g. the Compute Tile
+   *     has 2 core rows around a horizontal ring agent strip.
+   */
+  layout?: 'auto' | 'manual'
+  /** Manual-layout only: child center X offset from parent center. */
+  localX?: number
+  /** Manual-layout only: child center Z offset from parent center. */
+  localZ?: number
 }
 
 // L0 root — Arrow Lake 285K whole die
@@ -33,30 +46,73 @@ export const chipSpec: BlockSpec = {
   height: 0.4,
   children: [
     // ----- COMPUTE TILE -----
+    // Floorplan matches the annotated 285K die shot:
+    //   F:\Raptor-K-E\reference images\die cpu tile - high-yield-arrow-lake-5_1920px.png
+    //
+    //   Top edge:    P#1  E#1  P#3  P#5  E#3  P#7      ← 6 ring stops, north row
+    //   Top L3 row:  S1   S2   S3   S4   S5   S6        ← 6 LLC slices × 3 MB
+    //   Mid strip:   Ring Agent + L3 Cache Tags          ← horizontal HAC strip
+    //   Bot L3 row:  S7   S8   S9   S10  S11  S12       ← 6 LLC slices × 3 MB
+    //   Bot edge:    P#2  E#2  P#4  P#6  E#4  P#8      ← 6 ring stops, south row
+    //
+    //   8 P-cores (Lion Cove) numbered 1-8 per Intel marketing.
+    //   4 E-clusters numbered 1-4 (each = 4 Skymont cores + shared L2).
+    //   12 LLC slices × 3 MB (2× 1.5 MB) = 36 MB total L3.
+    //   Ring topology: 12 core stops + 1 D2D stop to SoC tile.
+    //
+    // Compute tile L0 footprint = 7 wide × 5 deep. Children use layout: 'manual'
+    // with explicit localX/localZ for each block to match the die shot exactly.
+    //
+    // Column X centers (6 cols across width 7):
+    //   c0=-2.92  c1=-1.75  c2=-0.58  c3=+0.58  c4=+1.75  c5=+2.92
+    // Row Z centers (5 bands across depth 5):
+    //   row-top-cores   z=-1.9   depth 1.2
+    //   row-top-l3      z=-0.95  depth 0.7
+    //   row-ring        z= 0     depth 1.2
+    //   row-bot-l3      z=+0.95  depth 0.7
+    //   row-bot-cores   z=+1.9   depth 1.2
     {
       id: 'compute',
-      label: 'Compute Tile (TSMC N3B, 117 mm²)',
-      width: 8,
-      depth: 12,
+      label: 'Compute Tile · TSMC N3B · 117 mm²',
+      width: 7,
+      depth: 5,
       height: 0.6,
+      layout: 'manual',
       children: [
-        // 8 Lion Cove P-cores in EMON module order: 0,1,4,5,6,7,10,11
-        { id: 'compute.p-core-0', label: 'P-core 0 (Lion Cove)', width: 1.5, depth: 1.5, height: 0.4, children: lionCoveBlocks('compute.p-core-0') },
-        { id: 'compute.p-core-1', label: 'P-core 1 (Lion Cove)', width: 1.5, depth: 1.5, height: 0.4, children: lionCoveBlocks('compute.p-core-1') },
-        { id: 'compute.p-core-4', label: 'P-core 4 (Lion Cove)', width: 1.5, depth: 1.5, height: 0.4, children: lionCoveBlocks('compute.p-core-4') },
-        { id: 'compute.p-core-5', label: 'P-core 5 (Lion Cove)', width: 1.5, depth: 1.5, height: 0.4, children: lionCoveBlocks('compute.p-core-5') },
-        { id: 'compute.p-core-6', label: 'P-core 6 (Lion Cove)', width: 1.5, depth: 1.5, height: 0.4, children: lionCoveBlocks('compute.p-core-6') },
-        { id: 'compute.p-core-7', label: 'P-core 7 (Lion Cove)', width: 1.5, depth: 1.5, height: 0.4, children: lionCoveBlocks('compute.p-core-7') },
-        { id: 'compute.p-core-10', label: 'P-core 10 (Lion Cove)', width: 1.5, depth: 1.5, height: 0.4, children: lionCoveBlocks('compute.p-core-10') },
-        { id: 'compute.p-core-11', label: 'P-core 11 (Lion Cove)', width: 1.5, depth: 1.5, height: 0.4, children: lionCoveBlocks('compute.p-core-11') },
-        // 4 Skymont E-clusters at modules 2,3,8,9
-        { id: 'compute.e-cluster-2', label: 'E-cluster (mod 2, 4× Skymont)', width: 3, depth: 2, height: 0.4, children: skymontClusterBlocks('compute.e-cluster-2') },
-        { id: 'compute.e-cluster-3', label: 'E-cluster (mod 3, 4× Skymont)', width: 3, depth: 2, height: 0.4, children: skymontClusterBlocks('compute.e-cluster-3') },
-        { id: 'compute.e-cluster-8', label: 'E-cluster (mod 8, 4× Skymont)', width: 3, depth: 2, height: 0.4, children: skymontClusterBlocks('compute.e-cluster-8') },
-        { id: 'compute.e-cluster-9', label: 'E-cluster (mod 9, 4× Skymont)', width: 3, depth: 2, height: 0.4, children: skymontClusterBlocks('compute.e-cluster-9') },
-        // L3 ring bus: 12 LLC slices × 3 MB = 36 MB total (per LAYER-PLAN.md)
-        // ARL Skymont E-cores tap L3 for the first time (no MSC on desktop).
-        { id: 'compute.l3-ring', label: 'Ring Bus + 12 LLC slices (36 MB)', width: 7, depth: 11, height: 0.05 },
+        // ─── TOP CORE ROW (north edge) ───────────────────────────────
+        { id: 'compute.p1', label: 'P-core #1 · Lion Cove', localX: -2.92, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p1') },
+        { id: 'compute.e1', label: 'E-cluster #1 · 4× Skymont', localX: -1.75, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: skymontClusterBlocks('compute.e1') },
+        { id: 'compute.p3', label: 'P-core #3 · Lion Cove', localX: -0.58, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p3') },
+        { id: 'compute.p5', label: 'P-core #5 · Lion Cove', localX:  0.58, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p5') },
+        { id: 'compute.e3', label: 'E-cluster #3 · 4× Skymont', localX:  1.75, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: skymontClusterBlocks('compute.e3') },
+        { id: 'compute.p7', label: 'P-core #7 · Lion Cove', localX:  2.92, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p7') },
+
+        // ─── TOP L3 SLICE ROW ────────────────────────────────────────
+        { id: 'compute.l3-s1',  label: 'L3 Slice #1 · 3 MB',  localX: -2.92, localZ: -0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s2',  label: 'L3 Slice #2 · 3 MB',  localX: -1.75, localZ: -0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s3',  label: 'L3 Slice #3 · 3 MB',  localX: -0.58, localZ: -0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s4',  label: 'L3 Slice #4 · 3 MB',  localX:  0.58, localZ: -0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s5',  label: 'L3 Slice #5 · 3 MB',  localX:  1.75, localZ: -0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s6',  label: 'L3 Slice #6 · 3 MB',  localX:  2.92, localZ: -0.95, width: 1.05, depth: 0.6, height: 0.15 },
+
+        // ─── RING AGENT STRIP (HAC + L3 cache tags) ─────────────────
+        { id: 'compute.ring-agent', label: 'Ring Agent + L3 Cache Tags', localX: 0, localZ: 0, width: 6.8, depth: 1.0, height: 0.18 },
+
+        // ─── BOTTOM L3 SLICE ROW ─────────────────────────────────────
+        { id: 'compute.l3-s7',  label: 'L3 Slice #7 · 3 MB',  localX: -2.92, localZ:  0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s8',  label: 'L3 Slice #8 · 3 MB',  localX: -1.75, localZ:  0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s9',  label: 'L3 Slice #9 · 3 MB',  localX: -0.58, localZ:  0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s10', label: 'L3 Slice #10 · 3 MB', localX:  0.58, localZ:  0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s11', label: 'L3 Slice #11 · 3 MB', localX:  1.75, localZ:  0.95, width: 1.05, depth: 0.6, height: 0.15 },
+        { id: 'compute.l3-s12', label: 'L3 Slice #12 · 3 MB', localX:  2.92, localZ:  0.95, width: 1.05, depth: 0.6, height: 0.15 },
+
+        // ─── BOTTOM CORE ROW (south edge) ────────────────────────────
+        { id: 'compute.p2', label: 'P-core #2 · Lion Cove', localX: -2.92, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p2') },
+        { id: 'compute.e2', label: 'E-cluster #2 · 4× Skymont', localX: -1.75, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: skymontClusterBlocks('compute.e2') },
+        { id: 'compute.p4', label: 'P-core #4 · Lion Cove', localX: -0.58, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p4') },
+        { id: 'compute.p6', label: 'P-core #6 · Lion Cove', localX:  0.58, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p6') },
+        { id: 'compute.e4', label: 'E-cluster #4 · 4× Skymont', localX:  1.75, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: skymontClusterBlocks('compute.e4') },
+        { id: 'compute.p8', label: 'P-core #8 · Lion Cove', localX:  2.92, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p8') },
       ],
     },
 
@@ -65,7 +121,7 @@ export const chipSpec: BlockSpec = {
     // L1 cache is per-Xe-core (192 KB unified L1/SLM), not per-slice. Display + media live on SoC.
     {
       id: 'gpu',
-      label: 'GPU Tile (Xe-LPG, TSMC N5, 23 mm²)',
+      label: 'GPU Tile · Xe-LPG · TSMC N5 · 23 mm²',
       width: 5,
       depth: 4,
       height: 0.4,
@@ -101,7 +157,7 @@ export const chipSpec: BlockSpec = {
     //   - 3 D2D edge bridges: CPU D2D (H-IDI), GPU D2D (CXL), IOE D2D
     {
       id: 'soc',
-      label: 'SoC Tile (TSMC N6, 87 mm²)',
+      label: 'SoC Tile · TSMC N6 · 87 mm²',
       width: 8,
       depth: 8,
       height: 0.4,
@@ -162,7 +218,7 @@ export const chipSpec: BlockSpec = {
     // ----- IOE TILE (IO Expander, per Intel ARL architecture diagram) -----
     {
       id: 'ioe',
-      label: 'IOE Tile (TSMC N6, 24 mm²)',
+      label: 'IOE Tile · TSMC N6 · 24 mm²',
       width: 4,
       depth: 3,
       height: 0.4,

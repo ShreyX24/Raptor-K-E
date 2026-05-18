@@ -27,10 +27,11 @@ import { Edges } from '@react-three/drei'
 
 import type { BlockSpec } from '@/data/chip-spec'
 import { useStore } from '@/state/store'
-import { packChildren, expandInstanceArray } from '@/util/packChildren'
+import { layoutChildren, expandInstanceArray } from '@/util/packChildren'
 import { registerMesh, unregisterMesh } from './meshRegistry'
 import { severityColors, severityIntensity, PULSE_RATE } from '@/util/severity'
 import { BlockMetrics } from '@/hud/BlockMetrics'
+import { BlockLabel } from '@/hud/BlockLabel'
 
 export const DRILL_GAP = 2.0
 export const CHILD_HEIGHT = 0.32
@@ -101,11 +102,14 @@ export function Block({
   // Children get packed inside my footprint, raised by DRILL_GAP.
   // BUG-006 fix: if this block declares instanceOf/count (e.g. decode×8),
   // expandInstanceArray synthesizes the N lane specs so L4 drill reveals them.
+  // Compute Tile uses `layout: 'manual'` with explicit per-child localX/localZ
+  // so the on-screen floorplan matches the actual die shot (2 core rows around
+  // a horizontal ring agent strip + 12 L3 slices).
   const effectiveChildren = useMemo(() => expandInstanceArray(spec), [spec])
   const packedChildren = useMemo(() => {
     if (effectiveChildren.length === 0) return []
-    return packChildren(effectiveChildren, position[0], position[2], width, depth)
-  }, [effectiveChildren, position[0], position[2], width, depth])
+    return layoutChildren(spec, effectiveChildren, position[0], position[2], width, depth)
+  }, [spec, effectiveChildren, position[0], position[2], width, depth])
 
   const childY = position[1] + height / 2 + DRILL_GAP
 
@@ -222,6 +226,16 @@ export function Block({
           />
           <Edges color="#00b2ff" threshold={15} />
         </mesh>
+
+        {/* Block name plate — engraved on the top face. Hidden for siblings/ghosts. */}
+        {isVisible && !isSibling && !isAncestor && (
+          <BlockLabel
+            label={spec.label}
+            topY={height / 2}
+            width={width}
+            depth={depth}
+          />
+        )}
 
         {/* PMU counter overlay — only mounted when block is visible at the current
             drill depth and has metrics. Anchored to the block's top face. */}

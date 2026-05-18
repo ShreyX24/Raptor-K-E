@@ -22,6 +22,7 @@ import { Edges } from '@react-three/drei'
 
 import { useStore } from '@/state/store'
 import { registerMesh, unregisterMesh } from './meshRegistry'
+import { BlockLabel } from '@/hud/BlockLabel'
 
 interface LayerProps {
   tileId: string
@@ -29,7 +30,8 @@ interface LayerProps {
   width: number
   depth: number
   height: number
-  label?: string
+  /** Block label engraved on the top face (e.g. "Compute Tile · TSMC N3B · 117 mm²") */
+  label: string
 }
 
 const LIFT_AMOUNT = 2.0
@@ -42,7 +44,7 @@ const GHOST_OPACITY = 0.15
 const FULL_OPACITY = 1.0
 const DAMP = 6
 
-export function Layer({ tileId, position, width, depth, height }: LayerProps) {
+export function Layer({ tileId, position, width, depth, height, label }: LayerProps) {
   const groupRef = useRef<THREE.Group>(null!)
   const meshRef = useRef<THREE.Mesh>(null!)
   const matRef = useRef<THREE.MeshPhysicalMaterial>(null!)
@@ -183,6 +185,19 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
         distance={Math.max(width, depth) * 1.5}
         decay={1.6}
       />
+
+      {/* L0 tile name engraved on top face. Hidden when drilled-into or sibling.
+          Show only the short name (text before the first "·") so densely-packed
+          L0 tiles don't have their labels collide. Full description with process
+          + die area is reserved for hover tooltips / panels. */}
+      {!isAncestor && !isSibling && bootState !== 'lidded' && (
+        <BlockLabel
+          label={label.split('·')[0].trim()}
+          topY={height / 2}
+          width={width}
+          depth={depth}
+        />
+      )}
     </group>
   )
 }

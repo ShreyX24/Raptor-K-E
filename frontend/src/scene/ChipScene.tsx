@@ -25,9 +25,8 @@ import { Layer } from './Layer'
 import { Block, DRILL_GAP } from './Block'
 import { BaseTile } from './BaseTile'
 import { IHS } from './IHS'
-import { FillerTile } from './FillerTile'
 import { chipSpec } from '@/data/chip-spec'
-import { packChildren } from '@/util/packChildren'
+import { layoutChildren } from '@/util/packChildren'
 import { useChoreographer } from '@/camera/Choreographer'
 
 /**
@@ -35,41 +34,37 @@ import { useChoreographer } from '@/camera/Choreographer'
  *
  * Reference: F:\Raptor-K-E\reference images\Screenshot 2026-05-18 203104.png
  *
- * Top section (north half):
- *   - empty strengthening filler tile (top-left, small)
- *   - IO Tile (bottom-left, under filler)
- *   - Compute Tile (right, LARGE — spans full top-section height)
- * Middle: SoC Tile (full width)
- * Bottom: GPU Tile (full width, shorter band)
+ * Edges touch — no visible gaps between adjacent tiles. Filler removed per
+ * user direction (it was distracting and added no information).
  *
- * Not a 2×2 quadrant grid. Real ARL packages place Compute as the dominant
- * top-right tile with IO + a structural filler die stacked on its left.
+ *   Top section:  IO Tile  |  Compute Tile (rectangle, wider than tall)
+ *   Middle:       SoC Tile (full width)
+ *   Bottom:       GPU Tile (full width, shorter band)
+ *
+ * All four tiles share boundary edges; chip footprint = 10 × 13 (X × Z).
+ * Tiles are placed so neighbors share X / Z edges exactly:
+ *   IOE.right  == Compute.left == -2
+ *   top.bottom == SoC.top      == -3
+ *   SoC.bottom == GPU.top      == +2
  */
-const BASE_W = 12
-const BASE_D = 18
+const BASE_W = 11
+const BASE_D = 14
 
 const Y_REST = 0.9
 const CHIPLET_H = 0.5
 
-// Top-section X split: left column at x≈-3.25 (width 3.5), Compute at x≈2 (width 6)
-// Z bands (north → south):
-//   filler:    z = -7  (depth 2.5)
-//   ioe:       z = -3.75 (depth 3.5)   — totals 6 with filler, equal to Compute height
-//   compute:   z = -5   (depth 6)
-//   soc:       z = 1.75 (depth 5)
-//   gpu:       z = 6.75 (depth 3)
 const L0_LAYOUT: Record<
   string,
   { x: number; z: number; w: number; d: number }
 > = {
-  compute: { x:  2,    z: -5,    w: 6,   d: 6   },
-  ioe:     { x: -3.25, z: -3.75, w: 3.5, d: 3.5 },
-  soc:     { x:  0,    z:  1.75, w: 10,  d: 5   },
-  gpu:     { x:  0,    z:  6.75, w: 10,  d: 3   },
+  // Top section — height 5, z in [-8, -3]
+  ioe:     { x: -3.5, z: -5.5, w:  3, d: 5 }, // x ∈ [-5, -2]
+  compute: { x:  1.5, z: -5.5, w:  7, d: 5 }, // x ∈ [-2,  5]  — rectangle, wider than tall
+  // Middle — full width, z in [-3, 2]
+  soc:     { x:  0,   z: -0.5, w: 10, d: 5 }, // x ∈ [-5,  5]
+  // Bottom — full width, z in [2, 5]
+  gpu:     { x:  0,   z:  3.5, w: 10, d: 3 }, // x ∈ [-5,  5]
 }
-
-// Non-interactive structural filler — top-left corner above IOE
-const FILLER_LAYOUT = { x: -3.25, z: -7, w: 3.5, d: 2.5 } as const
 
 export function ChipScene() {
   // Look up the BlockSpec for each L0 tile (drives the recursive Block subtree)
@@ -123,14 +118,6 @@ export function ChipScene() {
 
       <BaseTile width={BASE_W} depth={BASE_D} />
 
-      {/* Structural filler die (top-left). Non-interactive — no drill, no hover. */}
-      <FillerTile
-        position={[FILLER_LAYOUT.x, Y_REST, FILLER_LAYOUT.z]}
-        width={FILLER_LAYOUT.w}
-        depth={FILLER_LAYOUT.d}
-        height={CHIPLET_H}
-      />
-
       {/* IHS — covers the chiplets while bootState='lidded'; lifts+fades during 'delidding' */}
       <IHS width={BASE_W} depth={BASE_D} />
 
@@ -140,7 +127,7 @@ export function ChipScene() {
         // L1 children are packed into the tile's footprint, raised by DRILL_GAP
         const childY = Y_REST + CHIPLET_H / 2 + DRILL_GAP
         const l1Children = tileSpec.children
-          ? packChildren(tileSpec.children, t.x, t.z, t.w, t.d)
+          ? layoutChildren(tileSpec, tileSpec.children, t.x, t.z, t.w, t.d)
           : []
 
         return (
@@ -151,6 +138,7 @@ export function ChipScene() {
               width={t.w}
               depth={t.d}
               height={CHIPLET_H}
+              label={tileSpec.label}
             />
             {/* L1 subtree — mounted once, visibility gated by focusPath inside Block */}
             {l1Children.map(({ child, x, z, w, d }) => (

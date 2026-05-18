@@ -21,12 +21,7 @@
 import * as THREE from 'three'
 import { Text } from '@react-three/drei'
 import { useStore } from '@/state/store'
-
-// Intel One Display Bold — silicon-identifier typeface. Pointed at the TTF
-// from onlinewebfonts (same source as the @font-face declaration in index.css).
-// troika-three-text accepts any URL pointing to a real TTF/OTF/WOFF file.
-const SILICON_FONT_URL =
-  'https://db.onlinewebfonts.com/t/f41c652afbe4e65a3ab9b69ca48b1fee.ttf'
+import { SILICON_FONT_URL } from './fonts'
 
 interface IHSTextProps {
   /** Y of the IHS top face (lid center + lid height/2). Text floats just above. */
