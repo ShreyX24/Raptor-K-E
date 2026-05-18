@@ -18,7 +18,7 @@
 import { useEffect, useRef, useState } from 'react'
 import * as THREE from 'three'
 import { useFrame, type ThreeEvent } from '@react-three/fiber'
-import { Edges } from '@react-three/drei'
+import { Edges, RoundedBox } from '@react-three/drei'
 
 import { useStore } from '@/state/store'
 import { registerMesh, unregisterMesh } from './meshRegistry'
@@ -33,19 +33,32 @@ interface LayerProps {
   height: number
   /** Block label engraved on the top face (e.g. "Compute Tile · TSMC N3B · 117 mm²") */
   label: string
+  /** Frosted-glass tint colour. Defaults to cyan-blue if omitted. */
+  color?: string
+  /** Internal glow colour (matches tint family). Defaults to a darker version of color. */
+  emissive?: string
 }
 
 const LIFT_AMOUNT = 2.0
-const EMISSIVE_REST = 0.4
-const EMISSIVE_HOVER = 1.2
+const EMISSIVE_REST = 0.35
+const EMISSIVE_HOVER = 1.1
 const LIGHT_REST = 5
 const LIGHT_HOVER = 9
 const SIBLING_OPACITY = 0.08
 const GHOST_OPACITY = 0.15
-const FULL_OPACITY = 1.0
+const FULL_OPACITY = 0.92      // slight transparency at rest → frosted-glass feel
 const DAMP = 6
 
-export function Layer({ tileId, position, width, depth, height, label }: LayerProps) {
+export function Layer({
+  tileId,
+  position,
+  width,
+  depth,
+  height,
+  label,
+  color = '#1c2b4a',
+  emissive = '#073f60',
+}: LayerProps) {
   const groupRef = useRef<THREE.Group>(null!)
   const meshRef = useRef<THREE.Mesh>(null!)
   const matRef = useRef<THREE.MeshPhysicalMaterial>(null!)
@@ -165,23 +178,41 @@ export function Layer({ tileId, position, width, depth, height, label }: LayerPr
       onPointerOver={handleOver}
       onPointerOut={handleOut}
     >
-      <mesh ref={meshRef} castShadow receiveShadow>
-        <boxGeometry args={[width, height, depth]} />
+      {/* Frosted-glass body. Per-tile tint via color/emissive props. Rounded
+          corners (radius 0.04) + small RoundedBox shrink in ChipScene give
+          the tiny inter-tile gap the user wanted. */}
+      <RoundedBox
+        ref={meshRef}
+        args={[width, height, depth]}
+        radius={0.04}
+        smoothness={4}
+        creaseAngle={0.4}
+        castShadow
+        receiveShadow
+      >
         <meshPhysicalMaterial
           ref={matRef}
-          color="#1c2b4a"
-          metalness={0.15}
-          roughness={0.7}
-          clearcoat={0.05}
-          clearcoatRoughness={0.85}
-          emissive="#073f60"
+          color={color}
+          // Frosty glass — high roughness diffuses transmission (no mirror
+          // specular). No clearcoat (was the source of the eye-burning gloss).
+          // envMapIntensity dropped so the environment doesn't reflect off
+          // the top face.
+          roughness={0.85}
+          metalness={0.0}
+          transmission={0.55}
+          ior={1.45}
+          thickness={0.4}
+          attenuationDistance={2.5}
+          attenuationColor={color}
+          clearcoat={0.0}
+          envMapIntensity={0.2}
+          emissive={emissive}
           emissiveIntensity={EMISSIVE_REST}
-          envMapIntensity={0.3}
           transparent
           opacity={FULL_OPACITY}
         />
-        <Edges color="#00d4ff" threshold={15} lineWidth={2} />
-      </mesh>
+        <Edges color="#9fc8e8" threshold={15} lineWidth={0.9} transparent opacity={0.32} />
+      </RoundedBox>
 
       <pointLight
         ref={lightRef}

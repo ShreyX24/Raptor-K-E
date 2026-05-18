@@ -13,8 +13,8 @@
  */
 import { Fragment, Suspense, useRef } from 'react'
 import * as THREE from 'three'
-import { Canvas } from '@react-three/fiber'
-import { CameraControls } from '@react-three/drei'
+import { Canvas, useFrame } from '@react-three/fiber'
+import { CameraControls, Edges, RoundedBox } from '@react-three/drei'
 import { Perf } from 'r3f-perf'
 import type CameraControlsImpl from 'camera-controls'
 
@@ -29,24 +29,32 @@ import { ContextProjector } from './ContextProjector'
 import { chipSpec } from '@/data/chip-spec'
 import { layoutChildren } from '@/util/packChildren'
 import { useChoreographer } from '@/camera/Choreographer'
+import { useStore } from '@/state/store'
 
 /**
  * L0 chiplet layout — ARL family floorplan (200S / 200S+).
  *
  * Reference: F:\Raptor-K-E\reference images\Screenshot 2026-05-18 203104.png
  *
- * Edges touch — no visible gaps between adjacent tiles. Filler removed per
- * user direction (it was distracting and added no information).
+ * Per user direction (2026-05-19 iteration):
+ *   - All tiles "less square" → SoC's height reduced and donated to the top
+ *     section, which now hosts a tall vertical-rectangle Compute Tile next
+ *     to a left column of stacked EMPTY (strengthening) + IO tiles.
+ *   - Empty strengthening tile re-added on top-left, sitting ABOVE the
+ *     IO Tile and LEFT of the Compute Tile — mirrors the structural
+ *     17.47 mm² block in the actual ARL die-shot.
  *
- *   Top section:  IO Tile  |  Compute Tile (rectangle, wider than tall)
- *   Middle:       SoC Tile (full width)
- *   Bottom:       GPU Tile (full width, shorter band)
+ *   Top section:    [EMPTY ]   |
+ *                   [ IO   ]   |   COMPUTE (vertical rect, w=7 d=8)
+ *   Middle:         SoC Tile  (full width, height 2.5)
+ *   Bottom:         GPU Tile  (full width, height 2.5)
  *
- * All four tiles share boundary edges; chip footprint = 10 × 13 (X × Z).
- * Tiles are placed so neighbors share X / Z edges exactly:
- *   IOE.right  == Compute.left == -2
- *   top.bottom == SoC.top      == -3
- *   SoC.bottom == GPU.top      == +2
+ * All neighbours share boundary edges; chip footprint = 10 × 13 (X × Z).
+ * Tiles placed so neighbours share X / Z edges exactly:
+ *   empty.bottom == ioe.top     == -5.5
+ *   ioe.right    == compute.left  == -2
+ *   ioe.bottom   == compute.bottom == +0.5 (== soc.top)
+ *   soc.bottom   == gpu.top      == +3
  */
 const BASE_W = 11
 const BASE_D = 14
@@ -54,17 +62,134 @@ const BASE_D = 14
 const Y_REST = 0.9
 const CHIPLET_H = 0.5
 
+/**
+ * Per-tile dims, positions, and frosted-glass tints.
+ *
+ * Each tile is uniformly shrunk by SHRINK=0.06 on each side → 0.12 visible
+ * gap between adjacent tiles. Position centers stay on the "nominal" grid
+ * so neighbours don't drift.
+ *
+ * Tints picked to match the user's Screenshot 2026-05-18 203104.png mockup:
+ *   IOE = sage green   ·  Compute = amber/orange
+ *   SoC = violet       ·  GPU      = pink/salmon
+ */
+const SHRINK = 0.06
+
 const L0_LAYOUT: Record<
   string,
-  { x: number; z: number; w: number; d: number }
+  { x: number; z: number; w: number; d: number; color: string; emissive: string }
 > = {
-  // Top section — height 5, z in [-8, -3]
-  ioe:     { x: -3.5, z: -5.5, w:  3, d: 5 }, // x ∈ [-5, -2]
-  compute: { x:  1.5, z: -5.5, w:  7, d: 5 }, // x ∈ [-2,  5]  — rectangle, wider than tall
-  // Middle — full width, z in [-3, 2]
-  soc:     { x:  0,   z: -0.5, w: 10, d: 5 }, // x ∈ [-5,  5]
-  // Bottom — full width, z in [2, 5]
-  gpu:     { x:  0,   z:  3.5, w: 10, d: 3 }, // x ∈ [-5,  5]
+  // Top section — d=8 total, z ∈ [-6.5, +1.5]. Left column (nominal w=3)
+  // holds EMPTY (top, d=2) stacked above IOE (d=6). Right (nominal w=7)
+  // is Compute spanning the full top-section depth (vertical rectangle).
+  ioe: {
+    x: -3.5, z: -1.5, w: 3 - SHRINK * 2, d: 6 - SHRINK * 2,
+    color: '#86efac', emissive: '#1d5238',
+  },
+  compute: {
+    x: 1.5, z: -2.5, w: 7 - SHRINK * 2, d: 8 - SHRINK * 2,
+    color: '#f59e0b', emissive: '#7c4309',
+  },
+  // Middle — SoC bumped d=2.5 → d=3 (got 0.5 from GPU)
+  soc: {
+    x: 0, z: 3, w: 10 - SHRINK * 2, d: 3 - SHRINK * 2,
+    color: '#a78bfa', emissive: '#3e1f8e',
+  },
+  // Bottom — GPU shrunk d=2.5 → d=2 (donated to SoC)
+  gpu: {
+    x: 0, z: 5.5, w: 10 - SHRINK * 2, d: 2 - SHRINK * 2,
+    color: '#fca5a5', emissive: '#6e1f1f',
+  },
+}
+
+/**
+ * Empty strengthening tile — mirrors the structural 17.47 mm² block in the
+ * ARL die-shot. Sits TOP-LEFT, above IOE, left of Compute. Same shrink as
+ * the other tiles so the inter-tile gap reads consistently. SILVER finish
+ * (no PMU, no children, no drill, no hover-lift).
+ */
+const EMPTY_TILE = {
+  x: -3.5,
+  z: -5.5,
+  w: 3 - SHRINK * 2,
+  d: 2 - SHRINK * 2,
+} as const
+
+/**
+ * EmptyStrengtheningTile — static metallic plate at the top-left corner of
+ * the chip outline, above the IO tile and left of the Compute tile. No PMU,
+ * no children, no hover-lift, no click. Just structural support, mirroring
+ * the 17.47 mm² empty piece in the real ARL die-shot.
+ *
+ * Opacity follows bootState (hidden while IHS lid is on) plus the same
+ * "fade siblings when drilled" rule as the L0 chiplets — so when the user
+ * drills into Compute / IOE / SoC / GPU, the empty piece also fades.
+ */
+function EmptyStrengtheningTile({
+  x,
+  z,
+  w,
+  d,
+  y,
+  h,
+}: {
+  x: number
+  z: number
+  w: number
+  d: number
+  y: number
+  h: number
+}) {
+  const matRef = useRef<THREE.MeshPhysicalMaterial>(null!)
+  const groupRef = useRef<THREE.Group>(null!)
+  const focusPath = useStore((s) => s.focusPath)
+  const bootState = useStore((s) => s.bootState)
+
+  // Match the L0 chiplet visibility rules: full while ground state + delidded;
+  // sibling-faded while a chiplet is drilled; hidden under the lid.
+  useFrame((state, dt) => {
+    const m = matRef.current
+    const g = groupRef.current
+    if (!m || !g) return
+
+    let target = 1.0
+    if (bootState === 'lidded') target = 0
+    else if (focusPath.length > 0) target = 0.08
+
+    m.opacity = THREE.MathUtils.damp(m.opacity, target, 6, dt)
+    g.visible = m.opacity > 0.01
+
+    if (Math.abs(m.opacity - target) > 0.002) state.invalidate()
+  })
+
+  return (
+    <group ref={groupRef} position={[x, y, z]}>
+      <RoundedBox
+        args={[w, h, d]}
+        radius={0.04}
+        smoothness={4}
+        creaseAngle={0.4}
+        castShadow
+        receiveShadow
+      >
+        <meshPhysicalMaterial
+          ref={matRef}
+          // FULLY MATTE silver-tinted gray. Per user direction: "remove
+          // the shine please". metalness=0 + roughness=1 + envMap=0 →
+          // pure Lambertian, no specular at all. Reads as silver via base
+          // colour alone, no PBR sheen.
+          color="#B8B8B8"
+          metalness={0.0}
+          roughness={1.0}
+          clearcoat={0.0}
+          envMapIntensity={0.0}
+          transparent
+          opacity={1.0}
+        />
+        <Edges color="#cccccc" threshold={15} lineWidth={0.9} transparent opacity={0.4} />
+      </RoundedBox>
+    </group>
+  )
 }
 
 export function ChipScene() {
@@ -122,6 +247,16 @@ export function ChipScene() {
       {/* IHS — covers the chiplets while bootState='lidded'; lifts+fades during 'delidding' */}
       <IHS width={BASE_W} depth={BASE_D} />
 
+      {/* Structural strengthening piece — top-left corner, above IO, left of Compute */}
+      <EmptyStrengtheningTile
+        x={EMPTY_TILE.x}
+        z={EMPTY_TILE.z}
+        w={EMPTY_TILE.w}
+        d={EMPTY_TILE.d}
+        y={Y_REST}
+        h={CHIPLET_H}
+      />
+
       {/* L0 chiplets (cyan glass) + L1+ recursive Block subtrees (anodized aluminum) */}
       {l0TileSpecs.map((tileSpec) => {
         const t = L0_LAYOUT[tileSpec.id]
@@ -140,6 +275,8 @@ export function ChipScene() {
               depth={t.d}
               height={CHIPLET_H}
               label={tileSpec.label}
+              color={t.color}
+              emissive={t.emissive}
             />
             {/* L1 subtree — mounted once, visibility gated by focusPath inside Block */}
             {l1Children.map(({ child, x, z, w, d }) => (

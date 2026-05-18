@@ -55,6 +55,7 @@ import { SILICON_FONT_URL } from '@/hud/fonts'
 import { HoverHighlightShowcase } from './HoverHighlightShowcase'
 import { RestingTileAsset } from './RestingTileAsset'
 import { HoverFrameAsset } from './HoverFrameAsset'
+import { LayerL0Asset } from './LayerL0Asset'
 
 // Cuboid dimensions (X, Y, Z) — CPU-tile-ish but inflated for visibility.
 const W = 8
@@ -118,11 +119,13 @@ function CameraSetup({ ccRef }: { ccRef: RefObject<CameraControlsImpl | null> })
   useEffect(() => {
     // Frame everything in the /test scene:
     //   - V/E/S reference cuboid at origin (right)
-    //   - asset 01 hover/highlight at x ≈ -18, y ≈ +2  (top-left)
-    //   - asset 02 resting tiles  at x ≈ -18, y ≈ -12 (bottom-left)
-    //   - asset 03 hover frame    at x ≈   0, y ≈ -12 (bottom-right)
-    // Pulled back so all of them fit; lookAt biased toward the lower-left.
-    ccRef.current?.setLookAt(8, 16, 44, -9, -3, 0, false)
+    //   - asset 01 hover/highlight at x ≈ -18, y ≈ +2   (top-left)
+    //   - asset 02 resting tiles  at x ≈ -18, y ≈ -12  (bottom-left)
+    //   - asset 03 hover frame    at x ≈   0, y ≈ -12  (bottom-right)
+    //   - L0 chip layout          at x ≈ -22, y ≈ -26  (LAYERS row)
+    // Pulled further back; lookAt biased toward the lower-left so the
+    // new LAYERS row at the bottom is in frame. Free-cam to fly closer.
+    ccRef.current?.setLookAt(10, 18, 52, -8, -10, 0, false)
   }, [ccRef])
   return <CameraControls ref={ccRef} makeDefault smoothTime={0.4} />
 }
@@ -233,7 +236,7 @@ export function TestCuboid({ freeCamera = false }: { freeCamera?: boolean }) {
       dpr={[1, 2]}
       shadows={{ type: THREE.PCFShadowMap }}
       gl={{ antialias: false, powerPreference: 'high-performance', stencil: false }}
-      camera={{ position: [8, 16, 44], fov: 42, near: 0.1, far: 200 }}
+      camera={{ position: [10, 18, 52], fov: 42, near: 0.1, far: 200 }}
       onCreated={({ gl }) => {
         THREE.ColorManagement.enabled = true
         gl.outputColorSpace = THREE.SRGBColorSpace
@@ -367,6 +370,17 @@ export function TestCuboid({ freeCamera = false }: { freeCamera?: boolean }) {
       ──────────────────────────────────────────────────────────────── */}
       <group position={[0, -12, 0]}>
         <HoverFrameAsset />
+      </group>
+
+      {/* ────────────────────────────────────────────────────────────────
+        LAYERS ROW — bottom row, scrolls right as more layers are added.
+        L0 first: physical 4-quadrant chip floorplan (COMPUTE / GPU /
+        IOE / SoC) on the base substrate. Per LAYER-PLAN.md §L0.
+        Future slots: L1 (Compute drill), L2 (Lion Cove), L3 (Front End),
+        L4 (decode lanes) — laid out left → right as they're built.
+      ──────────────────────────────────────────────────────────────── */}
+      <group position={[-22, -26, 0]}>
+        <LayerL0Asset />
       </group>
 
       <CameraSetup ccRef={ccRef} />
