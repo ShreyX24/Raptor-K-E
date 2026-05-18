@@ -135,13 +135,13 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
         <meshPhysicalMaterial
           ref={matRef}
           color="#1c2b4a"
-          metalness={0.5}
-          roughness={0.26}
-          clearcoat={0.7}
-          clearcoatRoughness={0.3}
+          metalness={0.15}
+          roughness={0.7}
+          clearcoat={0.05}
+          clearcoatRoughness={0.85}
           emissive="#073f60"
           emissiveIntensity={EMISSIVE_REST}
-          envMapIntensity={1.3}
+          envMapIntensity={0.3}
           transparent
           opacity={FULL_OPACITY}
         />

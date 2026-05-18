@@ -38,14 +38,18 @@ import { DRILL_GAP, CHILD_HEIGHT } from '@/scene/Block'
  * 90° would be pure orthographic blueprint mode — readable but loses depth cue.
  * Tweak `CANONICAL_ELEV_DEG` to bias more flat (lower) or more top (higher).
  */
-const CANONICAL_ELEV_DEG = 75
-const CANONICAL_AZIM_DEG = 35 // slight orbit so we don't view dead-perpendicular along X
+// User-locked canonical angle (2026-05-18):
+//   AZIM = 0° — CPU head points exactly North, tail exactly South on screen
+//   ELEV = 72° — near-top-down but tilted enough to show 3D chiplet edges
+const CANONICAL_ELEV_DEG = 72
+const CANONICAL_AZIM_DEG = 0
 const CANONICAL_ELEV = (CANONICAL_ELEV_DEG * Math.PI) / 180
 const CANONICAL_AZIM = (CANONICAL_AZIM_DEG * Math.PI) / 180
 
-// L0 default view — near-top-down framing of the whole base tile.
-// Computed from the canonical angle at a distance that fits the 18×14 base.
-const L0_DISTANCE = 24
+// L0 default view — chip is portrait (12×18) so we pull camera back more than
+// landscape would require, keeping ~40% breathing room top/bottom (matches
+// user reference image #2 framing).
+const L0_DISTANCE = 36
 const L0_LOOK_AT: [number, number, number] = [0, 1, 0]
 const L0_CAMERA_POS: [number, number, number] = [
   L0_LOOK_AT[0] + L0_DISTANCE * Math.cos(CANONICAL_ELEV) * Math.sin(CANONICAL_AZIM),

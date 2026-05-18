@@ -36,25 +36,32 @@ import { useChoreographer } from '@/camera/Choreographer'
  * Per user direction: actual mm² is NOT preserved visually — placement matters,
  * not relative size. Equal-quadrant grid for readable hover targets.
  */
-// Base is larger than the chiplet grid so the substrate rim is visible
-// around and between the chiplets (matches Intel Arc Day hero render).
-const BASE_W = 18
-const BASE_D = 14
+// Real LGA1851 package is portrait: ~37.5mm wide × 45mm tall.
+// Base is shaped the same way — narrower in X, longer in Z — so the chip's
+// "head" (north edge, +cards face / Compute+GPU row) reads as the SHORT edge
+// at the top of the screen and the "tail" (south edge / IOE+SoC row) as the
+// short edge at the bottom. Reference: F:\Raptor-K-E\reference images\processor-s-l400.jpg
+const BASE_W = 12 // X (width = short axis)
+const BASE_D = 18 // Z (depth = long axis, head→tail)
+
 // Lift chiplets ~0.7 above the base top (base top = 0.15, chiplet bottom = 0.5)
 // so each chiplet visibly floats and casts a cyan underglow on the substrate.
 const Y_REST = 0.9
 const CHIPLET_H = 0.5
 
-// 1-unit gap between adjacent chiplets so the dark substrate shows through
-// the "cracks" — readability improvement over edge-to-edge tiles.
+// 2×2 portrait grid. Each chiplet is taller (Z) than wide (X) to match
+// the package aspect ratio. 1-unit gap between adjacent chiplets so the dark
+// substrate shows through the "cracks".
 const L0_LAYOUT: Record<
   string,
   { x: number; z: number; w: number; d: number }
 > = {
-  compute: { x: -4.0, z: -3.0, w: 7, d: 5 },
-  gpu:     { x:  4.0, z: -3.0, w: 7, d: 5 },
-  ioe:     { x: -4.0, z:  3.0, w: 7, d: 5 },
-  soc:     { x:  4.0, z:  3.0, w: 7, d: 5 },
+  // Top row (north / head) — Compute + GPU, taller-than-wide chiplets
+  compute: { x: -3, z: -4, w: 5, d: 7 },
+  gpu:     { x:  3, z: -4, w: 5, d: 7 },
+  // Bottom row (south / tail) — IOE + SoC
+  ioe:     { x: -3, z:  4, w: 5, d: 7 },
+  soc:     { x:  3, z:  4, w: 5, d: 7 },
 }
 
 export function ChipScene() {
@@ -76,9 +83,9 @@ export function ChipScene() {
         powerPreference: 'high-performance',
         stencil: false,
       }}
-      // Near-top-down initial position (matches Choreographer L0_CAMERA_POS).
-      // At 75° elevation / 35° azimuth, distance ~24 from origin.
-      camera={{ position: [3.5, 24, 5.2], fov: 38, near: 0.1, far: 100 }}
+      // Canonical L0 initial position (matches Choreographer L0_CAMERA_POS).
+      // AZIM=0° / ELEV=72° / distance=36 → portrait chip framed with breathing room.
+      camera={{ position: [0, 35.2, 11.12], fov: 38, near: 0.1, far: 100 }}
       onCreated={({ gl }) => {
         THREE.ColorManagement.enabled = true
         gl.outputColorSpace = THREE.SRGBColorSpace
