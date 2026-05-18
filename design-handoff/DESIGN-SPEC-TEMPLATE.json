@@ -1,0 +1,178 @@
+{
+  "$schema": "raptor-tma lion-cove board design spec v1",
+  "$notes": [
+    "Fill EVERY field below. Empty strings / 0 / null = not yet specified.",
+    "All colors must be lowercase hex with leading # (e.g. \"#1a2538\"). No CSS variables, no oklch, no rgba.",
+    "Numeric ranges follow Three.js MeshPhysicalMaterial conventions (0..1 unless noted).",
+    "If a band needs a gradient, supply gradientStops[] — I will bake into a texture.",
+    "If a band should NOT have a property (e.g. no emissive), set its color to \"#000000\" and intensity 0."
+  ],
+
+  "background": {
+    "color": "",
+    "fogColor": "",
+    "fogNear": 0,
+    "fogFar": 0
+  },
+
+  "lighting": {
+    "ambientIntensity": 0,
+    "directionalKey": { "color": "", "intensity": 0, "positionHint": "upper-right" },
+    "rimCyan":        { "color": "", "intensity": 0, "positionHint": "below-back" },
+    "fillCool":       { "color": "", "intensity": 0, "positionHint": "left" }
+  },
+
+  "boardPlate": {
+    "$comment": "The dark substrate plate behind all the cells. Visible as a thin frame around the cell grid.",
+    "color":             "",
+    "emissive":          "",
+    "emissiveIntensity": 0,
+    "metalness":         0,
+    "roughness":         0,
+    "clearcoat":         0,
+    "clearcoatRoughness":0,
+    "envMapIntensity":   0,
+    "transparent":       false,
+    "opacity":           1,
+    "edge": { "color": "", "lineWidth": 0, "opacity": 1 }
+  },
+
+  "bands": {
+    "frontEndCaches": {
+      "$cells": ["itlb-icache", "bpu"],
+      "$die-shot-color": "dark slate / nearly black, very subtle edge",
+      "material": {
+        "color":             "",
+        "emissive":          "",
+        "emissiveIntensity": 0,
+        "metalness":         0,
+        "roughness":         0,
+        "clearcoat":         0,
+        "clearcoatRoughness":0,
+        "envMapIntensity":   0,
+        "transparent":       true,
+        "opacity":           1
+      },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "decodeRow": {
+      "$cells": ["msrom", "decode", "uop-cache"],
+      "$die-shot-color": "dark slate, slight lighter than frontEndCaches",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "uopQueue": {
+      "$cells": ["uop-queue"],
+      "$die-shot-color": "BRIGHT BLUE band — the hero color in the reference",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "allocateRename": {
+      "$cells": ["allocate"],
+      "$die-shot-color": "TEAL band — slightly darker than uopQueue, more green-leaning",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "registerFiles": {
+      "$cells": ["vec-rf", "int-rf"],
+      "$die-shot-color": "lighter teal panels — backdrop for the scheduler columns below",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "vectorColumn": {
+      "$cells": ["vec-sched", "v-port-*", "v-r8-*", "v-r9-*", "v-r10-*", "v-fpdiv-*"],
+      "$die-shot-color": "bright cyan-blue active column — most prominent column in the ref",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "vectorFill": {
+      "$cells": ["x87-mmx"],
+      "$die-shot-color": "deep blue fill block at the column bottom, slightly darker than the active cells above",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "integerColumn": {
+      "$cells": ["int-sched", "p-port-*", "i-r8-*", "i-r9-*", "i-mul-*"],
+      "$die-shot-color": "teal — desaturated relative to vectorColumn",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "integerFill": {
+      "$cells": ["misc"],
+      "$die-shot-color": "dark teal — fills bottom of integer column, shows through MUL gaps above",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "storeDataColumn": {
+      "$cells": ["sto-sched", "sd-port-*"],
+      "$die-shot-color": "dark blue, narrow subdued column",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "storeDataFill": {
+      "$cells": ["store-data"],
+      "$die-shot-color": "dark blue fill, vertical tall block",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "memoryColumn": {
+      "$cells": ["mem-sched", "m-port-*", "m-r8-*", "m-r9-*"],
+      "$die-shot-color": "dark blue, similar to storeDataColumn but slightly more saturated",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    },
+
+    "cacheStack": {
+      "$cells": ["l0d", "l1d", "l2"],
+      "$die-shot-color": "DEEP BLUE / violet — most saturated blue on the board",
+      "material": { "color": "", "emissive": "", "emissiveIntensity": 0, "metalness": 0, "roughness": 0, "clearcoat": 0, "clearcoatRoughness": 0, "envMapIntensity": 0, "transparent": true, "opacity": 1 },
+      "edge":        { "color": "", "lineWidth": 0, "opacity": 1 },
+      "labelColor":  "",
+      "labelOutline":""
+    }
+  },
+
+  "global": {
+    "$comment": "Settings that apply across ALL bands. Edges default to cyan rim across the chip.",
+    "bloomThreshold":    1.0,
+    "bloomStrength":     0,
+    "bloomRadius":       0,
+    "fontFamily":        "IntelOne Display Bold",
+    "labelOutlineWidth": 0
+  }
+}
