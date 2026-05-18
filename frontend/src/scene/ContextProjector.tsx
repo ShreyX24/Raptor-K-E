@@ -44,19 +44,21 @@ import { SILICON_FONT_URL } from '@/hud/fonts'
 // localX∈[-8,8] / localZ∈[-7,7] coordinates; we SCALE them to fit a wider
 // (more 16:9-ish) board so the canvas fills the viewport. Aspect 22:10 ≈ 2.2.
 const BOARD_W = 22                    // world width  (X) of the board face
-const BOARD_H = 10                    // world height (Y) of the board face
-const BOARD_CENTER_Y = 6              // board middle, world Y
+const BOARD_H = 9.6                   // world height (Y) of the board face — leaves room for breadcrumb
+const BOARD_CENTER_Y = 5.5            // board middle, world Y — lower so top doesn't hit breadcrumb
 const BOARD_FACE_Z = 0
 const CELL_SCALE_X = BOARD_W / 16     // 1.375 (chip-spec X span is 16)
-const CELL_SCALE_Y = BOARD_H / 14     // 0.714 (chip-spec Z span is 14)
+const CELL_SCALE_Y = BOARD_H / 14     // 0.686 (chip-spec Z span is 14)
 
-// Trapezium podium (the P-core "projector" base) — below the board
-const TRAP_TOP_Y    = 0.0   // trapezium TOP face Y (world)
-const TRAP_BOT_Y    = -1.4  // trapezium BOTTOM face Y (world)
-const TRAP_TOP_W    = 6.0   // narrower at top
-const TRAP_TOP_D    = 1.2
-const TRAP_BOT_W    = 10.0  // wider at bottom (wide-angled, per user drawing)
-const TRAP_BOT_D    = 2.4
+// Trapezium podium (the P-core "projector" base) — below the board with a
+// noticeable gap so the 4 projection lines are visible diverging up to the
+// board corners.
+const TRAP_TOP_Y    = -1.0  // trapezium TOP face Y
+const TRAP_BOT_Y    = -3.0  // trapezium BOTTOM face Y (further down for taller trap)
+const TRAP_TOP_W    = 7.0   // narrower at top
+const TRAP_TOP_D    = 1.4
+const TRAP_BOT_W    = 12.0  // wider at bottom — more wide-angled
+const TRAP_BOT_D    = 2.6
 
 // Bezel inset for the cyan rim on the board frame
 const BOARD_PAD = 0.3
@@ -129,12 +131,19 @@ function BoardCell({ spec }: BoardCellProps) {
   const h = spec.depth * CELL_SCALE_Y
   const thickness = Math.max(0.08, spec.height ?? 0.15)
 
+  // Z layering: large fill blocks (MISC / X87-MMX / L2 / Store Data — the ones
+  // with raw depth >= 3) render slightly BEHIND the standard cells, so the
+  // smaller MUL / FPDIV / L0 / L1 cells visually layer on TOP of them — same
+  // as the die shot where MISC color shows through the MUL row's gaps.
+  const isFillBlock = (spec.depth ?? 1) >= 3
+  const zOffset = isFillBlock ? -0.05 : 0
+
   // Auto-sized label
   const labelSize = Math.max(0.14, Math.min(w, h) * 0.18)
   const maxLabelW = w * 0.86
 
   return (
-    <group position={[localX, localY, 0]}>
+    <group position={[localX, localY, zOffset]}>
       <mesh castShadow receiveShadow>
         <boxGeometry args={[w, h, thickness]} />
         <meshPhysicalMaterial

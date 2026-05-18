@@ -96,23 +96,17 @@ export function useChoreographer(controlsRef: RefObject<CameraControls | null>) 
       return
     }
 
-    // Context mode — frame the vertical Lion Cove board head-on (like looking
-    // at a bulletin board on a wall). Camera at +Z, looking in -Z direction.
-    //
-    // Board is 22 × 10 world units centered at world (0, 6, 0).
-    // Trapezium occupies Y ≈ [-1.4, 0]. Total stack: Y ≈ [-1.4, 11] (12.4 tall).
-    // Aspect 22:12.4 ≈ 1.77 — exactly matches 16:9 viewport.
-    //
-    // To fit width: distance = (BOARD_W / 2) / tan(hFOV/2)
-    //   hFOV at vFOV=38° aspect=1.78 ≈ 63.4°, tan = 0.618 → d = 11 / 0.618 = 17.8
-    // For visible margin (95% width fill): d ≈ 18.
+    // Context mode — head-on horizontal view of the vertical Lion Cove board.
+    // Board 22 × 9.6 centered at (0, 5.5, 0). Trap occupies Y∈[-3,-1].
+    // Total stack Y range: [-3, 10.3]. Camera frames the whole stack with
+    // some top margin for breadcrumb and visual breathing room.
     const context = computeContextInfo(focusPath)
     if (context.active && context.path) {
       const targetX = 0
-      const targetY = 4.5  // slight bias toward the bottom so the trapezium has room
+      const targetY = 3.5  // midpoint of stack [-3, 10.3] ≈ 3.65
       const targetZ = 0
-      const ELEV_CTX = (6 * Math.PI) / 180 // 6° — subtle downward tilt
-      const distance = 20   // d=20 leaves margin top (under breadcrumb) and bottom
+      const ELEV_CTX = (5 * Math.PI) / 180 // 5° — subtle downward tilt
+      const distance = 21
       const camX = targetX
       const camY = targetY + distance * Math.sin(ELEV_CTX)
       const camZ = targetZ + distance * Math.cos(ELEV_CTX)

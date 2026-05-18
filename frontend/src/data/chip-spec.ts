@@ -402,16 +402,24 @@ function lionCoveBoardBlocks(parentId: string): BlockSpec[] {
     { id: `${p}.v-fpdiv-1`, label: 'FPDIV', localX: -5.75, localZ: R11, width: 1.5, depth: 1, height: 0.15 },
     { id: `${p}.l1d`,       label: '192 KB L1 D-Cache', localX: 5.5, localZ: R11, width: 5, depth: 1, height: 0.15 },
 
-    // ─── Bottom-fill (height 3, fills Y[-7,-4]) ────────────────────
-    // Vector column: X87/MMX
-    { id: `${p}.x87-mmx`,  label: 'X87 / MMX', localX: -6.5, localZ: BOT_C, width: 3, depth: BOT_H, height: 0.15 },
-    // Integer column: MISC
-    { id: `${p}.misc`,     label: 'MISC',      localX: -1.5, localZ: BOT_C, width: 7, depth: BOT_H, height: 0.15 },
-    // Store data column: STORE DATA (taller — fills from R8 down)
-    // From R8=−0.5 to bottom −7 = 6.5 height, center −3.75
-    { id: `${p}.store-data`, label: 'Store Data', localX: 2.5, localZ: -3.75, width: 1, depth: 6.5, height: 0.15 },
-    // Memory column: L2 Cache fills from R12 down (after L1 at R11), center BOT_C
-    { id: `${p}.l2`,       label: 'up to 3 MB L2 Cache', localX: 5.5, localZ: BOT_C, width: 5, depth: BOT_H, height: 0.15 },
+    // ─── Bottom-fill — per-column heights matching die-shot proportions ─
+    // Each fill block extends from its column's start Y down to the board bottom.
+    // In the die shot, MUL/FPDIV cells visually layer ON TOP of these fills
+    // (BoardCell uses a Z offset so fills render behind their overlaying cells).
+    //
+    // Vector column: X87/MMX fills below FPDIV row (R11=-3.5) down to bottom.
+    //   spans Y=[-7, -4], depth 3, center -5.5
+    { id: `${p}.x87-mmx`, label: 'X87 / MMX', localX: -6.5, localZ: -5.5, width: 3, depth: 3, height: 0.15 },
+    // Integer column: MISC fills from below JMP/SHIFT row (R9=-1.5) down to bottom.
+    //   Covers the MUL row's empty gaps. MUL cells at R10=-2.5 sit on top via Z offset.
+    //   spans Y=[-7, -2], depth 5, center -4.5
+    { id: `${p}.misc`,    label: 'MISC',      localX: -1.5, localZ: -4.5, width: 7, depth: 5, height: 0.15 },
+    // Store data column: STORE DATA fills from below P10/P11 (R7=0.5) down to bottom.
+    //   spans Y=[-7, 0], depth 7, center -3.5
+    { id: `${p}.store-data`, label: 'Store Data', localX: 2.5, localZ: -3.5, width: 1, depth: 7, height: 0.15 },
+    // Memory column: L2 cache fills below L1 D-Cache (R11=-3.5) to bottom.
+    //   spans Y=[-7, -4], depth 3, center -5.5
+    { id: `${p}.l2`,      label: 'up to 3 MB L2 Cache', localX: 5.5, localZ: -5.5, width: 5, depth: 3, height: 0.15 },
   ]
 }
 
