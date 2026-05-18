@@ -23,6 +23,7 @@ import { Edges } from '@react-three/drei'
 import { useStore } from '@/state/store'
 import { registerMesh, unregisterMesh } from './meshRegistry'
 import { BlockLabel } from '@/hud/BlockLabel'
+import { computeContextInfo } from '@/util/contextMode'
 
 interface LayerProps {
   tileId: string
@@ -60,6 +61,9 @@ export function Layer({ tileId, position, width, depth, height, label }: LayerPr
   const focusPath = useStore((s) => s.focusPath)
   const pushFocus = useStore((s) => s.pushFocus)
   const bootState = useStore((s) => s.bootState)
+  // Context mode: when a deep block (e.g. P-core) is focused with enterContext,
+  // L0 chiplets unmount so only the inner board is visible.
+  const contextActive = computeContextInfo(focusPath).active
 
   const restY = position[1]
   const liftedY = restY + LIFT_AMOUNT
@@ -90,6 +94,8 @@ export function Layer({ tileId, position, width, depth, height, label }: LayerPr
 
     // Phase 4 boot gate: lidded → invisible; delidding/delidded → use focusPath target
     if (bootState === 'lidded') targetOpacity = 0
+    // Context mode: every L0 chiplet hides — only the inner board is on screen.
+    if (contextActive) targetOpacity = 0
 
     // Emissive target: hover bump only when liftable (post-delid + ground state)
     const targetEmissive = allowLift ? EMISSIVE_HOVER : EMISSIVE_REST

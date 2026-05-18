@@ -35,6 +35,14 @@ export interface BlockSpec {
   localX?: number
   /** Manual-layout only: child center Z offset from parent center. */
   localZ?: number
+  /**
+   * When this block becomes the deepest focus, the scene enters "context mode":
+   *   - Base Tile, IHS, all L0 chiplets, and ancestor wireframe ghosts hide
+   *   - Only this block's children render (the "board" the user is inspecting)
+   *   - A name plate at the bottom shows this block's label
+   * Used for entering deep contexts like a single P-core's full ISA pipeline.
+   */
+  enterContext?: boolean
 }
 
 // L0 root — Arrow Lake 285K whole die
@@ -80,12 +88,12 @@ export const chipSpec: BlockSpec = {
       layout: 'manual',
       children: [
         // ─── TOP CORE ROW (north edge) ───────────────────────────────
-        { id: 'compute.p1', label: 'P-core #1 · Lion Cove', localX: -2.92, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p1') },
+        { id: 'compute.p1', label: 'P-core #1 · Lion Cove', localX: -2.92, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, enterContext: true, layout: 'manual', children: lionCoveBoardBlocks('compute.p1') },
         { id: 'compute.e1', label: 'E-cluster #1 · 4× Skymont', localX: -1.75, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: skymontClusterBlocks('compute.e1') },
-        { id: 'compute.p3', label: 'P-core #3 · Lion Cove', localX: -0.58, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p3') },
-        { id: 'compute.p5', label: 'P-core #5 · Lion Cove', localX:  0.58, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p5') },
+        { id: 'compute.p3', label: 'P-core #3 · Lion Cove', localX: -0.58, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, enterContext: true, layout: 'manual', children: lionCoveBoardBlocks('compute.p3') },
+        { id: 'compute.p5', label: 'P-core #5 · Lion Cove', localX:  0.58, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, enterContext: true, layout: 'manual', children: lionCoveBoardBlocks('compute.p5') },
         { id: 'compute.e3', label: 'E-cluster #3 · 4× Skymont', localX:  1.75, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: skymontClusterBlocks('compute.e3') },
-        { id: 'compute.p7', label: 'P-core #7 · Lion Cove', localX:  2.92, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p7') },
+        { id: 'compute.p7', label: 'P-core #7 · Lion Cove', localX:  2.92, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, enterContext: true, layout: 'manual', children: lionCoveBoardBlocks('compute.p7') },
 
         // ─── TOP L3 SLICE ROW ────────────────────────────────────────
         { id: 'compute.l3-s1',  label: 'L3 Slice #1 · 3 MB',  localX: -2.92, localZ: -0.95, width: 1.05, depth: 0.6, height: 0.15 },
@@ -107,12 +115,12 @@ export const chipSpec: BlockSpec = {
         { id: 'compute.l3-s12', label: 'L3 Slice #12 · 3 MB', localX:  2.92, localZ:  0.95, width: 1.05, depth: 0.6, height: 0.15 },
 
         // ─── BOTTOM CORE ROW (south edge) ────────────────────────────
-        { id: 'compute.p2', label: 'P-core #2 · Lion Cove', localX: -2.92, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p2') },
+        { id: 'compute.p2', label: 'P-core #2 · Lion Cove', localX: -2.92, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, enterContext: true, layout: 'manual', children: lionCoveBoardBlocks('compute.p2') },
         { id: 'compute.e2', label: 'E-cluster #2 · 4× Skymont', localX: -1.75, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: skymontClusterBlocks('compute.e2') },
-        { id: 'compute.p4', label: 'P-core #4 · Lion Cove', localX: -0.58, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p4') },
-        { id: 'compute.p6', label: 'P-core #6 · Lion Cove', localX:  0.58, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p6') },
+        { id: 'compute.p4', label: 'P-core #4 · Lion Cove', localX: -0.58, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, enterContext: true, layout: 'manual', children: lionCoveBoardBlocks('compute.p4') },
+        { id: 'compute.p6', label: 'P-core #6 · Lion Cove', localX:  0.58, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, enterContext: true, layout: 'manual', children: lionCoveBoardBlocks('compute.p6') },
         { id: 'compute.e4', label: 'E-cluster #4 · 4× Skymont', localX:  1.75, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: skymontClusterBlocks('compute.e4') },
-        { id: 'compute.p8', label: 'P-core #8 · Lion Cove', localX:  2.92, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, children: lionCoveBlocks('compute.p8') },
+        { id: 'compute.p8', label: 'P-core #8 · Lion Cove', localX:  2.92, localZ:  1.9, width: 1.05, depth: 1.15, height: 0.4, enterContext: true, layout: 'manual', children: lionCoveBoardBlocks('compute.p8') },
       ],
     },
 
@@ -247,25 +255,86 @@ export const chipSpec: BlockSpec = {
   ],
 }
 
-// Helper: canonical Lion Cove L3 sub-blocks per references/chip-taxonomy.md
-function lionCoveBlocks(parentId: string): BlockSpec[] {
+/**
+ * Lion Cove P-core full pipeline board — die-shot accurate.
+ *
+ * Reference: F:\Raptor-K-E\reference images\die p core.jpg
+ *
+ * When a P-core is clicked, the parent block has `enterContext: true` so the
+ * scene shifts: Base/IHS/L0/L1 ghosts unmount, and this board fills the
+ * viewport. Board footprint: 8 wide × 6 deep (centered at parent's L2 Y).
+ *
+ * Bands (Z from -3 to +3, top → bottom):
+ *   z=-2.65, d=0.5 — Front-end caches: I-TLB+ICache, BPU
+ *   z=-2.05, d=0.5 — Decode row: MSROM, Decode 8-wide (instanced ×8), µOP Cache 12-wide
+ *   z=-1.50, d=0.5 — µOP Queue (full width)
+ *   z=-0.95, d=0.5 — Allocate / Rename / Move Elim / Zero Idiom 8-wide (full width)
+ *   z=-0.40, d=0.4 — Vector Reg File · Integer Reg File
+ *   z= 0.05, d=0.3 — 4 scheduler headers
+ *   z= 0.40, d=0.3 — port banks (V0-V3 | P0-P5 | P10-P11 | P20-P27)
+ *   z= 0.90, d=0.5 — Vector Exec · Integer Exec · Store Data · Memory Exec
+ *   z= 1.55, d=0.5 — MISC (center) + cache stack starts (right)
+ *   z= 2.15, d=0.5 — Cache stack: L0 D$ · L1 D$ · L2 cache (right column)
+ *
+ * Column X centers (4-column scheduler band; widths vary):
+ *   Vector  : x=-2.6  (w=1.4)
+ *   Integer : x=-0.7  (w=2.4)
+ *   StoreData: x=+1.0 (w=0.8)
+ *   Memory  : x=+2.6  (w=2.4) — caches stack along this right column
+ */
+function lionCoveBoardBlocks(parentId: string): BlockSpec[] {
   return [
-    {
-      id: `${parentId}.frontend`,
-      label: 'Front End (8-wide decode)',
-      width: 1.3, depth: 0.3, height: 0.1,
-      children: [
-        { id: `${parentId}.frontend.bpu`,       label: 'Branch Predictor', width: 0.4, depth: 0.2, height: 0.05 },
-        { id: `${parentId}.frontend.fetch`,     label: 'Fetch (64 B/cyc)', width: 0.4, depth: 0.2, height: 0.05 },
-        { id: `${parentId}.frontend.decode`,    label: 'Decode (8-wide)',  width: 0.5, depth: 0.2, height: 0.05, instanceOf: 'decode.lane', count: 8 },
-        { id: `${parentId}.frontend.uop-cache`, label: 'µop Cache (5.25K)', width: 0.4, depth: 0.2, height: 0.05 },
-        { id: `${parentId}.frontend.uop-queue`, label: 'µop Queue (192)',   width: 0.4, depth: 0.2, height: 0.05 },
-      ],
-    },
-    { id: `${parentId}.ooo`,    label: 'Out-of-Order (576 ROB, split INT/VEC)',         width: 1.3, depth: 0.3, height: 0.1 },
-    { id: `${parentId}.exec`,   label: 'Execution Ports (18 wide)',                     width: 1.3, depth: 0.3, height: 0.1, instanceOf: 'exec.port', count: 18 },
-    { id: `${parentId}.memory`, label: 'Memory (L0D 48K / L1D 192K / L2 3M / L3 3M)', width: 1.3, depth: 0.3, height: 0.1 },
+    // ─── Band 1: Front-end caches ──────────────────────────────────
+    { id: `${parentId}.itlb-icache`, label: 'I-TLB + I-Cache', localX: -1.2, localZ: -2.65, width: 4.4, depth: 0.5, height: 0.2 },
+    { id: `${parentId}.bpu`,         label: 'BPU',             localX:  2.6, localZ: -2.65, width: 2.4, depth: 0.5, height: 0.2 },
+
+    // ─── Band 2: Decode row ────────────────────────────────────────
+    { id: `${parentId}.msrom`,       label: 'MSROM (4-wide)',    localX: -3.2, localZ: -2.05, width: 1.2, depth: 0.5, height: 0.2 },
+    { id: `${parentId}.decode`,      label: 'Decode (8-wide)',   localX: -0.7, localZ: -2.05, width: 3.8, depth: 0.5, height: 0.2, instanceOf: 'decode.lane', count: 8 },
+    { id: `${parentId}.uop-cache`,   label: 'µOP Cache (12-wide)', localX: 2.6, localZ: -2.05, width: 2.4, depth: 0.5, height: 0.2 },
+
+    // ─── Band 3: µOP Queue ─────────────────────────────────────────
+    { id: `${parentId}.uop-queue`,   label: 'µOP Queue (192 entries)', localX: 0, localZ: -1.50, width: 7.6, depth: 0.5, height: 0.2 },
+
+    // ─── Band 4: Allocate / Rename ─────────────────────────────────
+    { id: `${parentId}.allocate-rename`, label: 'Allocate · Rename · Move Elim · Zero Idiom (8-wide)', localX: 0, localZ: -0.95, width: 7.6, depth: 0.5, height: 0.2 },
+
+    // ─── Band 5: Register Files ────────────────────────────────────
+    { id: `${parentId}.vec-rf`, label: 'Vector Register File',  localX: -2.6, localZ: -0.40, width: 2.4, depth: 0.4, height: 0.15 },
+    { id: `${parentId}.int-rf`, label: 'Integer Register File', localX:  1.3, localZ: -0.40, width: 5.0, depth: 0.4, height: 0.15 },
+
+    // ─── Band 6: Scheduler headers ─────────────────────────────────
+    { id: `${parentId}.vec-sched`,        label: 'Vector Scheduler',     localX: -2.6, localZ:  0.05, width: 2.4, depth: 0.3, height: 0.15 },
+    { id: `${parentId}.int-sched`,        label: 'Integer Scheduler',    localX: -0.4, localZ:  0.05, width: 2.0, depth: 0.3, height: 0.15 },
+    { id: `${parentId}.store-data-sched`, label: 'Store Data Scheduler', localX:  1.05, localZ: 0.05, width: 0.9, depth: 0.3, height: 0.15 },
+    { id: `${parentId}.mem-sched`,        label: 'Memory Scheduler',     localX:  2.95, localZ: 0.05, width: 2.7, depth: 0.3, height: 0.15 },
+
+    // ─── Band 7: Port banks (collapsed per scheduler — drill for individual ports) ───
+    { id: `${parentId}.vec-ports`,        label: 'Vector Ports · V0 V1 V2 V3',         localX: -2.6, localZ:  0.40, width: 2.4, depth: 0.3, height: 0.12, instanceOf: 've-port', count: 4 },
+    { id: `${parentId}.int-ports`,        label: 'Integer Ports · P0–P5',              localX: -0.4, localZ:  0.40, width: 2.0, depth: 0.3, height: 0.12, instanceOf: 'int-port', count: 6 },
+    { id: `${parentId}.store-data-ports`, label: 'Store Data Ports · P10 · P11',       localX:  1.05, localZ: 0.40, width: 0.9, depth: 0.3, height: 0.12, instanceOf: 'sd-port', count: 2 },
+    { id: `${parentId}.mem-ports`,        label: 'Memory Ports · P20 P21 P22 P25 P26 P27', localX:  2.95, localZ: 0.40, width: 2.7, depth: 0.3, height: 0.12, instanceOf: 'mem-port', count: 6 },
+
+    // ─── Bands 8-9: Execution units ────────────────────────────────
+    { id: `${parentId}.vec-exec`, label: 'Vector Exec · FMA · FADD · ALU · SHIFT · SHUF · FPDIV', localX: -2.6, localZ: 0.90, width: 2.4, depth: 0.5, height: 0.18 },
+    { id: `${parentId}.int-exec`, label: 'Integer Exec · ALU × 6 · JMP · SHIFT · MUL',           localX: -0.4, localZ: 0.90, width: 2.0, depth: 0.5, height: 0.18 },
+    { id: `${parentId}.store-data-exec`, label: 'Store Data',                                     localX:  1.05, localZ: 0.90, width: 0.9, depth: 0.5, height: 0.18 },
+    { id: `${parentId}.mem-exec`, label: 'Memory Exec · AGU × 6 · LOAD × 3 · STA × 3',            localX:  2.95, localZ: 0.90, width: 2.7, depth: 0.5, height: 0.18 },
+
+    // ─── Band 10: MISC (under int-exec) ────────────────────────────
+    { id: `${parentId}.misc-exec`, label: 'MISC', localX: -0.4, localZ: 1.55, width: 2.0, depth: 0.5, height: 0.15 },
+
+    // ─── Cache stack (right column, spans bands 10-11) ─────────────
+    { id: `${parentId}.l0d`, label: 'L0 D-Cache · 48 KB',     localX: 2.95, localZ: 1.50, width: 2.7, depth: 0.4, height: 0.15 },
+    { id: `${parentId}.l1d`, label: 'L1 D-Cache · 192 KB',    localX: 2.95, localZ: 1.95, width: 2.7, depth: 0.4, height: 0.15 },
+    { id: `${parentId}.l2`,  label: 'L2 Cache · up to 3 MB',  localX: 2.95, localZ: 2.40, width: 2.7, depth: 0.4, height: 0.15 },
   ]
+}
+
+// Legacy 4-block helper kept for any non-P-core caller (currently none).
+// Lion Cove P-cores now use lionCoveBoardBlocks for the full-pipeline view.
+function lionCoveBlocks(parentId: string): BlockSpec[] {
+  return lionCoveBoardBlocks(parentId)
 }
 
 // Helper: Skymont cluster sub-blocks

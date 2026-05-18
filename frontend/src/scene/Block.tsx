@@ -32,6 +32,7 @@ import { registerMesh, unregisterMesh } from './meshRegistry'
 import { severityColors, severityIntensity, PULSE_RATE } from '@/util/severity'
 import { BlockMetrics } from '@/hud/BlockMetrics'
 import { BlockLabel } from '@/hud/BlockLabel'
+import { computeContextInfo, isInsideContext } from '@/util/contextMode'
 
 export const DRILL_GAP = 2.0
 export const CHILD_HEIGHT = 0.32
@@ -115,6 +116,19 @@ export function Block({
   const isSibling = isVisible && focusPath.length > myIndex && !inFocusChain
   const hoveredHere = hoveredId === spec.id
 
+  // ---- context mode (e.g. inside a P-core's Lion Cove board) ----
+  // When any block in focusPath has enterContext, the scene hides everything
+  // outside that block's subtree. My "myPath" is the full path that identifies
+  // me uniquely; I'm part of the context subtree iff myPath starts with contextPath.
+  const myPath = [parentTileId, ...ancestorIds, spec.id]
+  const context = computeContextInfo(focusPath)
+  const contextActive = context.active
+  // I'm a *descendant* of the context block iff my path starts with the context's
+  // path AND I'm strictly deeper (not the context block itself).
+  const isContextBlock = contextActive && myPath.join('/') === context.path?.join('/')
+  const isInsideContextSubtree =
+    contextActive && !isContextBlock && isInsideContext(myPath, context.path)
+
   // Children get packed inside my footprint, raised by DRILL_GAP.
   // BUG-006 fix: if this block declares instanceOf/count (e.g. decode×8),
   // expandInstanceArray synthesizes the N lane specs so L4 drill reveals them.
@@ -144,6 +158,13 @@ export function Block({
 
     // Phase 4 boot gate: lidded → invisible; delidding/delidded → use focusPath target
     if (bootState === 'lidded') targetOpacity = 0
+
+    // Context-mode gate: only blocks STRICTLY INSIDE the context subtree stay
+    // visible. The context block itself and everything outside it (Base, IHS,
+    // L0 chiplets, ancestor wireframes, all other L1 siblings) all hide.
+    if (contextActive) {
+      if (!isInsideContextSubtree) targetOpacity = 0
+    }
 
     const canHover = isVisible && !isSibling && !isAncestor && hoveredHere
 

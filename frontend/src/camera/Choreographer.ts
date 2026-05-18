@@ -22,6 +22,7 @@ import type CameraControls from 'camera-controls'
 import { useStore } from '@/state/store'
 import { chipSpec } from '@/data/chip-spec'
 import { findBlockSpec } from '@/util/findBlock'
+import { computeContextInfo } from '@/util/contextMode'
 import { getMesh } from '@/scene/meshRegistry'
 import { DRILL_GAP, CHILD_HEIGHT } from '@/scene/Block'
 
@@ -93,6 +94,29 @@ export function useChoreographer(controlsRef: RefObject<CameraControls | null>) 
         true, // enableTransition
       )
       return
+    }
+
+    // Context mode — a deep block (P-core with enterContext) was focused.
+    // Frame the inner board (children layer above the context block) at canonical
+    // angle, large enough to fit the standard 8×6 board layout.
+    const context = computeContextInfo(focusPath)
+    if (context.active && context.path) {
+      const contextLeafId = context.path[context.path.length - 1]
+      const contextMesh = getMesh(contextLeafId)
+      if (contextMesh) {
+        _box.setFromObject(contextMesh)
+        const cx = (_box.min.x + _box.max.x) / 2
+        const cz = (_box.min.z + _box.max.z) / 2
+        const cy = _box.max.y + DRILL_GAP + CHILD_HEIGHT
+        // Lion Cove board is 8 × 6 — pick a distance that comfortably frames it
+        // at near-top-down angle (same canonical 72°).
+        const distance = 11
+        const camX = cx + distance * Math.cos(CANONICAL_ELEV) * Math.sin(CANONICAL_AZIM)
+        const camY = cy + distance * Math.sin(CANONICAL_ELEV)
+        const camZ = cz + distance * Math.cos(CANONICAL_ELEV) * Math.cos(CANONICAL_AZIM)
+        controls.setLookAt(camX, camY, camZ, cx, cy, cz, true).catch(() => {})
+        return
+      }
     }
 
     const targetId = focusPath[focusPath.length - 1]
