@@ -55,6 +55,14 @@ interface BlockProps {
   height?: number
   drillDepth: number // 1 for L1, 2 for L2, etc.
   parentTileId: string // the L0 tile id this block lives under (for sibling-fade gating)
+  /**
+   * IDs of every ancestor Block (L1+) above me in the tree, in order from L1 → my parent.
+   * Empty array for L1 blocks (whose direct parent is the L0 tile, not a Block).
+   * Used to gate visibility — a Block is visible only if focusPath matches every
+   * ancestor id at the corresponding focusPath index, so drilling into one L1 P-core
+   * does NOT also reveal every other L1 P-core's children at L2.
+   */
+  ancestorIds?: string[]
 }
 
 export function Block({
@@ -65,6 +73,7 @@ export function Block({
   height = CHILD_HEIGHT,
   drillDepth,
   parentTileId,
+  ancestorIds = [],
 }: BlockProps) {
   const groupRef = useRef<THREE.Group>(null!)
   const meshRef = useRef<THREE.Mesh>(null!)
@@ -91,11 +100,18 @@ export function Block({
   const inFocusChain = focusPath[myIndex] === spec.id
   const isFocused = inFocusChain && focusPath.length === myIndex + 1
   const isAncestor = inFocusChain && focusPath.length > myIndex + 1
-  // I should be visible when my parent tile has been focused: focusPath[0] === parentTileId
-  // AND focusPath has advanced at least to my level: focusPath.length >= drillDepth
+  // I should be visible when:
+  //   1. my parent tile (L0) is currently focused:  focusPath[0] === parentTileId
+  //   2. focusPath has advanced at least to my level: focusPath.length >= drillDepth
+  //   3. EVERY ancestor between the L0 tile and me is in the focus chain at the right
+  //      index — otherwise drilling into one L1 P-core would also reveal every other
+  //      L1 sibling's L2 children at the same time (the bug fix).
   const parentTileFocused = focusPath[0] === parentTileId
   const reachedMyLevel = focusPath.length >= drillDepth
-  const isVisible = parentTileFocused && reachedMyLevel
+  const allAncestorsInFocus = ancestorIds.every(
+    (id, i) => focusPath[i + 1] === id, // focusPath[0] = L0 tile, ancestors start at index 1
+  )
+  const isVisible = parentTileFocused && reachedMyLevel && allAncestorsInFocus
   const isSibling = isVisible && focusPath.length > myIndex && !inFocusChain
   const hoveredHere = hoveredId === spec.id
 
@@ -244,7 +260,9 @@ export function Block({
         )}
       </group>
 
-      {/* Recursively render children — they decide their own visibility */}
+      {/* Recursively render children — they decide their own visibility.
+          Pass our full ancestor chain + ourselves so each child's visibility
+          gate can verify the WHOLE path through focusPath, not just the L0 tile. */}
       {packedChildren.map(({ child, x, z, w, d }) => (
         <Block
           key={child.id}
@@ -254,6 +272,7 @@ export function Block({
           depth={d}
           drillDepth={drillDepth + 1}
           parentTileId={parentTileId}
+          ancestorIds={[...ancestorIds, spec.id]}
         />
       ))}
     </>
