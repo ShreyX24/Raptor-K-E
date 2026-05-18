@@ -24,6 +24,7 @@ import { PostFX } from './PostFX'
 import { Layer } from './Layer'
 import { Block, DRILL_GAP } from './Block'
 import { BaseTile } from './BaseTile'
+import { IHS } from './IHS'
 import { chipSpec } from '@/data/chip-spec'
 import { packChildren } from '@/util/packChildren'
 import { useChoreographer } from '@/camera/Choreographer'
@@ -83,9 +84,10 @@ export function ChipScene() {
         powerPreference: 'high-performance',
         stencil: false,
       }}
-      // Canonical L0 initial position (matches Choreographer L0_CAMERA_POS).
-      // AZIM=0° / ELEV=72° / distance=36 → portrait chip framed with breathing room.
-      camera={{ position: [0, 35.2, 11.12], fov: 38, near: 0.1, far: 100 }}
+      // Phase 4: app boots in 'lidded' state — start at IHS view (ELEV=65°, dist=32).
+      // Choreographer transitions to canonical L0 (72°/0°/36) once bootState delidded.
+      // sin(65°)≈0.906 → camY = 2 + 32*0.906 = 31.0 ; cos(65°)≈0.423 → camZ = 32*0.423 = 13.5
+      camera={{ position: [0, 31.0, 13.5], fov: 38, near: 0.1, far: 100 }}
       onCreated={({ gl }) => {
         THREE.ColorManagement.enabled = true
         gl.outputColorSpace = THREE.SRGBColorSpace
@@ -103,6 +105,9 @@ export function ChipScene() {
       </Suspense>
 
       <BaseTile width={BASE_W} depth={BASE_D} />
+
+      {/* IHS — covers the chiplets while bootState='lidded'; lifts+fades during 'delidding' */}
+      <IHS width={BASE_W} depth={BASE_D} />
 
       {/* L0 chiplets (cyan glass) + L1+ recursive Block subtrees (anodized aluminum) */}
       {l0TileSpecs.map((tileSpec) => {

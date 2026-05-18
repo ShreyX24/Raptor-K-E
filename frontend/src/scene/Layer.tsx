@@ -57,6 +57,7 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
 
   const focusPath = useStore((s) => s.focusPath)
   const pushFocus = useStore((s) => s.pushFocus)
+  const bootState = useStore((s) => s.bootState)
 
   const restY = position[1]
   const liftedY = restY + LIFT_AMOUNT
@@ -81,6 +82,9 @@ export function Layer({ tileId, position, width, depth, height }: LayerProps) {
     if (isAncestor) targetOpacity = GHOST_OPACITY
     else if (isSibling) targetOpacity = SIBLING_OPACITY
     else targetOpacity = FULL_OPACITY
+
+    // Phase 4 boot gate: lidded → invisible; delidding/delidded → use focusPath target
+    if (bootState === 'lidded') targetOpacity = 0
 
     // Emissive target: hover bump only in ground state
     const targetEmissive =

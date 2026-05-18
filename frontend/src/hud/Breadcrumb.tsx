@@ -43,7 +43,7 @@ export function Breadcrumb() {
     <div
       className="absolute top-4 left-1/2 -translate-x-1/2 z-10
                  flex items-center gap-1 px-4 py-2
-                 text-xs font-mono tracking-wide
+                 text-xs font-silicon tracking-wide
                  text-[oklch(0.92_0.02_240)]
                  bg-[oklch(0.12_0.02_250_/_0.65)]
                  border border-[oklch(0.78_0.18_220_/_0.35)]

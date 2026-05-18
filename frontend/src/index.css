@@ -1,6 +1,19 @@
 @import "tailwindcss";
 
 /**
+ * Intel One Display Bold — primary silicon-text typeface
+ * Used for chip identifiers, IHS engravings, breadcrumb headers, banners.
+ * Falls back to Geist / system-ui if the CDN fails (won't break the build).
+ */
+@font-face {
+  font-family: "IntelOne Display Bold";
+  font-display: swap;
+  src: url("https://db.onlinewebfonts.com/t/f41c652afbe4e65a3ab9b69ca48b1fee.woff2") format("woff2"),
+       url("https://db.onlinewebfonts.com/t/f41c652afbe4e65a3ab9b69ca48b1fee.woff") format("woff"),
+       url("https://db.onlinewebfonts.com/t/f41c652afbe4e65a3ab9b69ca48b1fee.ttf") format("truetype");
+}
+
+/**
  * intel-arc.css — OKLCH color tokens for the raptor-tma 3D frontend.
  * Source: .claude/skills/raptor-tma-3d/assets/tones/intel-arc.css
  */
@@ -31,9 +44,16 @@
   --color-fg-mute:    oklch(0.72 0.01 250);
   --color-fg-dim:     oklch(0.52 0.01 250);
 
-  /* Fonts (Geist + Geist Mono — self-host placeholder; falls back to system stack for now) */
-  --font-sans: "Geist", system-ui, sans-serif;
-  --font-mono: "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+  /* Fonts */
+  --font-sans:    "Geist", system-ui, sans-serif;
+  --font-mono:    "Geist Mono", "JetBrains Mono", ui-monospace, monospace;
+  --font-silicon: "IntelOne Display Bold", "Geist", system-ui, sans-serif;
+}
+
+/* Utility class for any silicon-identifier text (Breadcrumb, banners, IHS HUD) */
+.font-silicon {
+  font-family: var(--font-silicon);
+  letter-spacing: 0.04em;
 }
 
 html, body, #root {

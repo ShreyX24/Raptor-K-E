@@ -38,4 +38,10 @@ export interface TMAReport {
   findings: Finding[]
   metrics: Record<BlockId, MetricSnapshot>
   narrative: Record<BlockId, string>
+
+  // Phase 4: optional package identity for the IHS boot screen.
+  // Backend may or may not populate these; frontend has sensible fallbacks.
+  silicon_family?: string // "ARL Client Platform"
+  cpu_sku?: string // "Intel Core Ultra 9 270K Plus"
+  batch_id?: string // "SRQDS L537F370" (decorative IHS engraving)
 }

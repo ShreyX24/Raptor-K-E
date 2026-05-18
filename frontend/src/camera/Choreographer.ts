@@ -50,6 +50,15 @@ const CANONICAL_AZIM = (CANONICAL_AZIM_DEG * Math.PI) / 180
 // landscape would require, keeping ~40% breathing room top/bottom (matches
 // user reference image #2 framing).
 const L0_DISTANCE = 36
+
+// Phase 4 Act 1 (IHS view) — closer + lower elevation than canonical L0 so the
+// engraved silicon-family / SKU text on the lid face reads cinematically.
+// Distance 24 keeps the lid prominent but lets viewers see the perimeter
+// (where the RGB loading border lives).
+const IHS_ELEV_DEG = 65
+const IHS_DISTANCE = 32
+const IHS_ELEV = (IHS_ELEV_DEG * Math.PI) / 180
+// Re-use CANONICAL_AZIM (0°) so head still points north during the boot screen
 const L0_LOOK_AT: [number, number, number] = [0, 1, 0]
 const L0_CAMERA_POS: [number, number, number] = [
   L0_LOOK_AT[0] + L0_DISTANCE * Math.cos(CANONICAL_ELEV) * Math.sin(CANONICAL_AZIM),
@@ -61,12 +70,22 @@ const _box = new THREE.Box3() // hoisted to avoid allocations on focus change
 
 export function useChoreographer(controlsRef: RefObject<CameraControls | null>) {
   const focusPath = useStore((s) => s.focusPath)
+  const bootState = useStore((s) => s.bootState)
 
   useEffect(() => {
     const controls = controlsRef.current
     if (!controls) return
 
-    // L0 ground state — reset to default isometric view
+    // Phase 4 Act 1 — IHS view when the lid is still on
+    if (bootState === 'lidded') {
+      const camX = 0
+      const camY = 2 + IHS_DISTANCE * Math.sin(IHS_ELEV)
+      const camZ = IHS_DISTANCE * Math.cos(IHS_ELEV)
+      controls.setLookAt(camX, camY, camZ, 0, 2, 0, true).catch(() => {})
+      return
+    }
+
+    // L0 ground state — reset to default isometric view (post-delid)
     if (focusPath.length === 0) {
       controls.setLookAt(
         L0_CAMERA_POS[0], L0_CAMERA_POS[1], L0_CAMERA_POS[2],
@@ -113,5 +132,5 @@ export function useChoreographer(controlsRef: RefObject<CameraControls | null>) 
       .catch(() => {
         // setLookAt rejects when interrupted by another move — ignore.
       })
-  }, [focusPath, controlsRef])
+  }, [focusPath, bootState, controlsRef])
 }

@@ -73,6 +73,7 @@ export function Block({
   const hoveredId = useStore((s) => s.hoveredBlockId)
   const pushFocus = useStore((s) => s.pushFocus)
   const hover = useStore((s) => s.hover)
+  const bootState = useStore((s) => s.bootState)
 
   // ---- state vs focusPath ----
   // L0 tile id sits at focusPath[0]; my drillDepth is 1 for L1 children of an L0 tile.
@@ -109,6 +110,9 @@ export function Block({
     else if (isSibling) targetOpacity = SIBLING_OPACITY
     else if (isAncestor) targetOpacity = GHOST_OPACITY
     else targetOpacity = FULL_OPACITY
+
+    // Phase 4 boot gate: lidded → invisible; delidding/delidded → use focusPath target
+    if (bootState === 'lidded') targetOpacity = 0
 
     // Only allow hover bump when I'm the deepest-focused block's child (i.e., clickable)
     const canHover = isVisible && !isSibling && !isAncestor && hoveredHere
