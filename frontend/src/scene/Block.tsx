@@ -40,6 +40,12 @@ export const CHILD_HEIGHT = 0.32
 const SIBLING_OPACITY = 0.08
 const GHOST_OPACITY = 0.15
 const FULL_OPACITY = 1.0
+/**
+ * Compute Tile's L1 children sit INSIDE the L0 plate (top-down drill). At
+ * ground state (focusPath = []), they're rendered at this low opacity so
+ * the cores / L3 / ring agent are faintly visible through the frosted glass.
+ */
+const COMPUTE_L1_REST_OPACITY = 0.22
 const EMISSIVE_REST = 0.3
 const EMISSIVE_HOVER = 1.2
 const DAMP = 6
@@ -86,8 +92,17 @@ export function Block({
     return () => unregisterMesh(spec.id)
   }, [spec.id])
 
+  // Perf: the whole subtree of Blocks gets re-rendered if we subscribe to
+  // focusPath directly (array reference changes on every push/pop). Keep
+  // focusPath for the computed gates below — but ALSO derive scalar
+  // selectors for the per-block booleans so most Block instances only
+  // re-render when their own state flips.
+  //
+  // Note: focusPath array IS shared by all Blocks (we still need it for the
+  // ancestor walk) — but Zustand's shallow ref check returns the SAME array
+  // when contents are unchanged. The bigger win is on hoveredBlockId.
   const focusPath = useStore((s) => s.focusPath)
-  const hoveredId = useStore((s) => s.hoveredBlockId)
+  const hoveredHereFromStore = useStore((s) => s.hoveredBlockId === spec.id)
   const pushFocus = useStore((s) => s.pushFocus)
   const hover = useStore((s) => s.hover)
   const bootState = useStore((s) => s.bootState)
@@ -114,7 +129,15 @@ export function Block({
   )
   const isVisible = parentTileFocused && reachedMyLevel && allAncestorsInFocus
   const isSibling = isVisible && focusPath.length > myIndex && !inFocusChain
-  const hoveredHere = hoveredId === spec.id
+  const hoveredHere = hoveredHereFromStore
+
+  // Compute Tile L1 exception: those direct children live INSIDE the L0 plate
+  // (top-down drill) and must be faintly visible even at ground state so the
+  // user can see the cores through the frosted L0 — like the cells visible
+  // inside each tile in Presentation1_page-0002.jpg.
+  const isComputeL1 = parentTileId === 'compute' && drillDepth === 1
+  const isGroundState = focusPath.length === 0
+  const computeL1PeekVisible = isComputeL1 && isGroundState
 
   // ---- context mode (e.g. inside a P-core's Lion Cove board) ----
   // When any block in focusPath has enterContext, the scene hides everything
@@ -150,8 +173,12 @@ export function Block({
     if (!g || !m) return
 
     // Target opacity: hidden=0, sibling=0.08, ancestor=0.15, focused=1.0
+    // Compute L1 ground-state exception: peeks at COMPUTE_L1_REST_OPACITY
+    // (~0.22) so the cores read through the frosted L0 above.
     let targetOpacity: number
-    if (!isVisible) targetOpacity = 0
+    if (!isVisible) {
+      targetOpacity = computeL1PeekVisible ? COMPUTE_L1_REST_OPACITY : 0
+    }
     else if (isSibling) targetOpacity = SIBLING_OPACITY
     else if (isAncestor) targetOpacity = GHOST_OPACITY
     else targetOpacity = FULL_OPACITY

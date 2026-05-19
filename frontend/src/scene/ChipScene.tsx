@@ -11,9 +11,9 @@
  * disable native antialias. frameloop="always" while we still measure with
  * r3f-perf; switches back to "demand" once Phase 4 wires invalidate().
  */
-import { Fragment, Suspense, useRef } from 'react'
+import { Fragment, Suspense, useEffect, useRef } from 'react'
 import * as THREE from 'three'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { CameraControls, Edges, RoundedBox } from '@react-three/drei'
 import { Perf } from 'r3f-perf'
 import type CameraControlsImpl from 'camera-controls'
@@ -26,10 +26,12 @@ import { Block, DRILL_GAP } from './Block'
 import { BaseTile } from './BaseTile'
 import { IHS } from './IHS'
 import { ContextProjector } from './ContextProjector'
+import { ComputeBoardProjector } from './ComputeBoardProjector'
 import { chipSpec } from '@/data/chip-spec'
 import { layoutChildren } from '@/util/packChildren'
 import { useChoreographer } from '@/camera/Choreographer'
 import { useStore } from '@/state/store'
+import { computeContextInfo } from '@/util/contextMode'
 
 /**
  * L0 chiplet layout — ARL family floorplan (200S / 200S+).
@@ -116,6 +118,46 @@ const EMPTY_TILE = {
 } as const
 
 /**
+ * GradientBackground — replaces the solid background with a 4-stop
+ * horizontal gradient. Stops sampled from user references (2026-05-19):
+ *
+ *   0%    #132262   dark indigo   RGB(19, 34, 98)
+ *   33%   #255cc0   rich blue     RGB(37, 92, 192)
+ *   66%   #85bcff   light blue    RGB(133, 188, 255)  ← bright spot
+ *   100%  #2f4e93   slate blue    RGB(47, 78, 147)
+ *
+ * Builds a 1024 × 256 CanvasTexture and sets scene.background — that
+ * renders as a flat backdrop projected to the viewport, so the gradient
+ * stays oriented left → right regardless of camera position.
+ */
+function GradientBackground() {
+  const scene = useThree((s) => s.scene)
+  useEffect(() => {
+    const c = document.createElement('canvas')
+    c.width = 1024
+    c.height = 256
+    const ctx = c.getContext('2d')!
+    const grad = ctx.createLinearGradient(0, 0, 1024, 0)
+    grad.addColorStop(0.00, '#132262')
+    grad.addColorStop(0.33, '#255cc0')
+    grad.addColorStop(0.66, '#85bcff')
+    grad.addColorStop(1.00, '#2f4e93')
+    ctx.fillStyle = grad
+    ctx.fillRect(0, 0, 1024, 256)
+
+    const tex = new THREE.CanvasTexture(c)
+    tex.colorSpace = THREE.SRGBColorSpace
+    const prev = scene.background
+    scene.background = tex
+    return () => {
+      scene.background = prev
+      tex.dispose()
+    }
+  }, [scene])
+  return null
+}
+
+/**
  * EmptyStrengtheningTile — static metallic plate at the top-left corner of
  * the chip outline, above the IO tile and left of the Compute tile. No PMU,
  * no children, no hover-lift, no click. Just structural support, mirroring
@@ -146,14 +188,19 @@ function EmptyStrengtheningTile({
   const bootState = useStore((s) => s.bootState)
 
   // Match the L0 chiplet visibility rules: full while ground state + delidded;
-  // sibling-faded while a chiplet is drilled; hidden under the lid.
+  // sibling-faded while a chiplet is drilled; hidden under the lid OR in
+  // context mode (so the Compute board / Lion Cove board fills the viewport
+  // without this little silver piece floating in the corner).
   useFrame((state, dt) => {
     const m = matRef.current
     const g = groupRef.current
     if (!m || !g) return
 
+    const contextActive = computeContextInfo(focusPath).active
+
     let target = 1.0
     if (bootState === 'lidded') target = 0
+    else if (contextActive) target = 0
     else if (focusPath.length > 0) target = 0.08
 
     m.opacity = THREE.MathUtils.damp(m.opacity, target, 6, dt)
@@ -233,8 +280,12 @@ export function ChipScene() {
           via the closest sRGB equivalent. Three.js r166+ supports oklch via
           setStyle but `<color args>` takes a string passed straight to Color
           which doesn't parse oklch — so we use the precomputed hex. */}
-      <color attach="background" args={['#1c2230']} />
-      <fog attach="fog" args={['#1c2230', 30, 70]} />
+      {/* Horizontal 4-stop gradient — dark blue / blue / light blue / slate.
+          Set on scene.background via GradientBackground hook below; the
+          fog colour is the midpoint so distant geometry fades gracefully
+          into the gradient instead of toward the old near-black. */}
+      <GradientBackground />
+      <fog attach="fog" args={['#2c447a', 35, 90]} />
 
       <Lighting />
 
@@ -260,8 +311,14 @@ export function ChipScene() {
       {/* L0 chiplets (cyan glass) + L1+ recursive Block subtrees (anodized aluminum) */}
       {l0TileSpecs.map((tileSpec) => {
         const t = L0_LAYOUT[tileSpec.id]
-        // L1 children are packed into the tile's footprint, raised by DRILL_GAP
-        const childY = Y_REST + CHIPLET_H / 2 + DRILL_GAP
+        // Top-down drill for COMPUTE only: L1 lives INSIDE the L0 box (same Y
+        // as L0 plate's centre). The translucent frosted-glass L0 above lets
+        // the L1 cores / L3 slices / ring agent read through "just a tad".
+        // All other tiles still drill UP via DRILL_GAP (existing convention).
+        const childY =
+          tileSpec.id === 'compute'
+            ? Y_REST
+            : Y_REST + CHIPLET_H / 2 + DRILL_GAP
         const l1Children = tileSpec.children
           ? layoutChildren(tileSpec, tileSpec.children, t.x, t.z, t.w, t.d)
           : []
@@ -296,11 +353,16 @@ export function ChipScene() {
 
       {/* Context mode: 3D projector trapezium + 4 corner-to-corner lines */}
       <ContextProjector />
+      {/* Compute tile context — L1 floorplan as a perpendicular board */}
+      <ComputeBoardProjector />
 
       <CameraControls ref={controlsRef} makeDefault smoothTime={0.6} />
       <PostFX />
 
-      {import.meta.env.DEV && <Perf position="bottom-left" />}
+      {/* Perf temporarily disabled — its chart/history bars draw black spikes
+          over the canvas now that the background is bright. Re-enable with
+          minimal={true} once that mode is verified. */}
+      {/* {import.meta.env.DEV && <Perf position="bottom-left" />} */}
     </Canvas>
   )
 }

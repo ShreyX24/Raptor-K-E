@@ -214,6 +214,10 @@ export function ContextProjector() {
   }, [ctx.active, ctx.path])
 
   if (!ctx.active || !ctx.block) return null
+  // The Compute Tile anchors its own context (the L1 floorplan board).
+  // ComputeBoardProjector renders that — skip here so the two don't
+  // double-render or fight each other.
+  if (ctx.block.id === 'compute') return null
 
   // Board outer dims (the background plate behind the cells, framed in cyan rim)
   const boardW = BOARD_W + BOARD_PAD * 2

@@ -6,9 +6,11 @@
  * unmounts — Base, IHS, L0 chiplets, ancestor Blocks all hide — so only the
  * board (the focused block's children) is on screen, plus a name plate.
  *
- * The "context block" is the FIRST block in focusPath that has enterContext.
- * If multiple ancestors had the flag (unusual), the outermost wins so nested
- * contexts don't unmount each other.
+ * The "context block" is the INNERMOST (deepest) block in focusPath that has
+ * enterContext. With both Compute Tile (L1 board via ComputeBoardProjector)
+ * and its P-core children (L2 Lion Cove board via ContextProjector) flagged
+ * enterContext, the user drilling Compute → P-core needs the P-core (inner)
+ * context to take over so the Lion Cove board replaces the Compute board.
  */
 import { chipSpec, type BlockSpec } from '@/data/chip-spec'
 import { findBlockSpec, resolvePathChain } from './findBlock'
@@ -28,7 +30,15 @@ export function computeContextInfo(focusPath: string[]): ContextInfo {
   if (focusPath.length === 0) return { active: false }
   const chain = resolvePathChain(chipSpec, focusPath)
   if (chain.length === 0) return { active: false }
-  const idx = chain.findIndex((b) => b.enterContext === true)
+  // INNERMOST wins — scan from the deepest end. Lets P-core (Lion Cove board)
+  // take over from Compute (L1 floorplan board) once the user drills past it.
+  let idx = -1
+  for (let i = chain.length - 1; i >= 0; i--) {
+    if (chain[i].enterContext === true) {
+      idx = i
+      break
+    }
+  }
   if (idx < 0) return { active: false }
   return {
     active: true,

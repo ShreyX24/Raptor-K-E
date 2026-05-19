@@ -131,6 +131,11 @@ export const chipSpec: BlockSpec = {
       depth: 5,
       height: 0.6,
       layout: 'manual',
+      // Click Compute → enter context mode, show the L1 board (P-cores +
+      // E-clusters + 12 L3 slices + ring agent) as a poster perpendicular
+      // to the camera, just like the L2 Lion Cove board does for P-cores.
+      // Handled by ComputeBoardProjector.tsx.
+      enterContext: true,
       children: [
         // ─── TOP CORE ROW (north edge) ───────────────────────────────
         { id: 'compute.p1', label: 'P-core #1 · Lion Cove', localX: -2.92, localZ: -1.9, width: 1.05, depth: 1.15, height: 0.4, enterContext: true, layout: 'manual', children: lionCoveBoardBlocks('compute.p1') },
